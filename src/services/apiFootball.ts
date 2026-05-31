@@ -1,93 +1,21 @@
 import type { RealMatchData } from '../types/realMatch'
 
-const API_BASE_URL = 'https://v3.football.api-sports.io'
+const API_BASE_URL = 'https://wc26-live-football-api.p.rapidapi.com'
 
-type ApiFootballResponse<T> = {
-  get: string
-  parameters: Record<string, string>
-  errors: unknown[] | Record<string, string>
-  results: number
-  paging: {
-    current: number
-    total: number
-  }
-  response: T
+/**
+ * If RapidAPI shows different paths for this WC26 API,
+ * only update these endpoint values.
+ */
+const WC26_ENDPOINTS = {
+  live: '/live',
+  matches: '/matches',
+  schedule: '/schedule',
+  matchById: (matchId: string | number) => `/matches/${matchId}`,
+  matchEvents: (matchId: string | number) => `/matches/${matchId}/events`,
+  matchStatistics: (matchId: string | number) => `/statistics/${matchId}`
 }
 
-type ApiFootballFixture = {
-  fixture: {
-    id: number
-    status: {
-      long?: string
-      short?: string
-      elapsed?: number | null
-    }
-  }
-  teams: {
-    home: {
-      id?: number
-      name: string
-      logo?: string
-    }
-    away: {
-      id?: number
-      name: string
-      logo?: string
-    }
-  }
-  goals: {
-    home: number | null
-    away: number | null
-  }
-  score: {
-    halftime?: {
-      home: number | null
-      away: number | null
-    }
-    fulltime?: {
-      home: number | null
-      away: number | null
-    }
-    extratime?: {
-      home: number | null
-      away: number | null
-    }
-    penalty?: {
-      home: number | null
-      away: number | null
-    }
-  }
-}
-
-type ApiFootballStatisticRow = {
-  team: {
-    id?: number
-    name: string
-    logo?: string
-  }
-  statistics: {
-    type: string
-    value: string | number | null
-  }[]
-}
-
-type ApiFootballEvent = {
-  time: {
-    elapsed?: number | null
-    extra?: number | null
-  }
-  team: {
-    name?: string
-  }
-  player: {
-    name?: string
-  }
-  assist: {
-    name?: string
-  }
-  type?: string
-  detail?: string
-}
+type UnknownRecord = Record<string, unknown>
 
 export type ApiFootballWorldCupFixture = {
   fixture: {
@@ -127,72 +55,292 @@ export type ApiFootballWorldCupFixture = {
   }
 }
 
-function getApiKey() {
-  return import.meta.env.VITE_API_FOOTBALL_KEY as string | undefined
+function getRapidApiKey() {
+  return import.meta.env.VITE_WC26_RAPIDAPI_KEY as string | undefined
 }
 
-function hasApiErrors(errors: unknown[] | Record<string, string>) {
-  if (Array.isArray(errors)) {
-    return errors.length > 0
-  }
-
-  return Object.keys(errors).length > 0
+function getRapidApiHost() {
+  return (
+    (import.meta.env.VITE_WC26_RAPIDAPI_HOST as string | undefined) ??
+    'wc26-live-football-api.p.rapidapi.com'
+  )
 }
 
-function formatApiFootballErrors(errors: unknown[] | Record<string, string>) {
-  if (Array.isArray(errors)) {
-    return errors
-      .map((error) => String(error))
-      .filter(Boolean)
-      .join(', ')
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function getValueByPath(source: unknown, path: string) {
+  if (!isRecord(source)) {
+    return undefined
   }
 
-  return Object.entries(errors)
-    .map(([key, value]) => `${key}: ${value}`)
-    .join(', ')
+  return path.split('.').reduce<unknown>((currentValue, key) => {
+    if (!isRecord(currentValue)) {
+      return undefined
+    }
+
+    return currentValue[key]
+  }, source)
+}
+
+function getValueFromPaths(source: unknown, paths: string[]) {
+  for (const path of paths) {
+    const value = getValueByPath(source, path)
+
+    if (value !== undefined && value !== null && value !== '') {
+      return value
+    }
+  }
+
+  return undefined
+}
+
+function getStringFromPaths(source: unknown, paths: string[]) {
+  const value = getValueFromPaths(source, paths)
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (typeof value === 'number') {
+    return String(value)
+  }
+
+  return undefined
+}
+
+function getNumberFromPaths(source: unknown, paths: string[]) {
+  const value = getValueFromPaths(source, paths)
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const parsedValue = Number(value)
+
+    if (Number.isFinite(parsedValue)) {
+      return parsedValue
+    }
+  }
+
+  return undefined
+}
+
+function getNullableNumberFromPaths(source: unknown, paths: string[]) {
+  const value = getValueFromPaths(source, paths)
+
+  if (value === null) {
+    return null
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const parsedValue = Number(value)
+
+    if (Number.isFinite(parsedValue)) {
+      return parsedValue
+    }
+  }
+
+  return null
+}
+
+function extractArray(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) {
+    return payload
+  }
+
+  if (!isRecord(payload)) {
+    return []
+  }
+
+  const possibleArray = getValueFromPaths(payload, [
+    'data',
+    'response',
+    'matches',
+    'fixtures',
+    'results',
+    'items'
+  ])
+
+  if (Array.isArray(possibleArray)) {
+    return possibleArray
+  }
+
+  return []
+}
+
+function extractFirstItem(payload: unknown) {
+  const rows = extractArray(payload)
+
+  if (rows.length > 0) {
+    return rows[0]
+  }
+
+  if (isRecord(payload)) {
+    const possibleItem = getValueFromPaths(payload, [
+      'data',
+      'response',
+      'match',
+      'fixture',
+      'result'
+    ])
+
+    if (isRecord(possibleItem)) {
+      return possibleItem
+    }
+
+    return payload
+  }
+
+  return undefined
+}
+
+function formatRapidApiError(payload: unknown) {
+  if (!payload) {
+    return 'RapidAPI request failed.'
+  }
+
+  if (typeof payload === 'string') {
+    return payload
+  }
+
+  if (!isRecord(payload)) {
+    return 'RapidAPI request failed.'
+  }
+
+  const message = getStringFromPaths(payload, ['message', 'error'])
+  const errors = getValueFromPaths(payload, ['errors'])
+
+  if (message) {
+    return message
+  }
+
+  if (errors) {
+    return JSON.stringify(errors)
+  }
+
+  return JSON.stringify(payload)
 }
 
 async function apiFootballRequest<T>(path: string): Promise<T> {
-  const apiKey = getApiKey()
+  const rapidApiKey = getRapidApiKey()
+  const rapidApiHost = getRapidApiHost()
 
-  if (!apiKey) {
-    throw new Error('Missing VITE_API_FOOTBALL_KEY in .env.local')
+  if (!rapidApiKey) {
+    throw new Error('Missing VITE_WC26_RAPIDAPI_KEY in .env.local')
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'GET',
     headers: {
-      'x-apisports-key': apiKey
+      'content-type': 'application/json',
+      'x-rapidapi-host': rapidApiHost,
+      'x-rapidapi-key': rapidApiKey
     }
   })
 
+  let payload: unknown = null
+
+  try {
+    payload = await response.json()
+  } catch {
+    payload = null
+  }
+
   if (!response.ok) {
-    throw new Error(`API-Football request failed with ${response.status}`)
+    throw new Error(
+      formatRapidApiError(payload) || `RapidAPI request failed with ${response.status}`
+    )
   }
 
-  const payload = (await response.json()) as ApiFootballResponse<T>
-
-  if (hasApiErrors(payload.errors)) {
-    throw new Error(formatApiFootballErrors(payload.errors))
-  }
-
-  return payload.response
+  return payload as T
 }
 
-function getBestScore(fixture: ApiFootballFixture) {
-  const home =
-    fixture.goals.home ??
-    fixture.score.fulltime?.home ??
-    fixture.score.extratime?.home ??
-    fixture.score.penalty?.home ??
-    null
+async function requestFirstSuccessful<T>(paths: string[]) {
+  let lastError: unknown = null
 
-  const away =
-    fixture.goals.away ??
-    fixture.score.fulltime?.away ??
-    fixture.score.extratime?.away ??
-    fixture.score.penalty?.away ??
-    null
+  for (const path of paths) {
+    try {
+      return await apiFootballRequest<T>(path)
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('All RapidAPI endpoint attempts failed.')
+}
+
+function parseScoreString(scoreText?: string) {
+  if (!scoreText) {
+    return {
+      home: null,
+      away: null
+    }
+  }
+
+  const match = scoreText.match(/(\d+)\s*[-:]\s*(\d+)/)
+
+  if (!match) {
+    return {
+      home: null,
+      away: null
+    }
+  }
+
+  return {
+    home: Number(match[1]),
+    away: Number(match[2])
+  }
+}
+
+function getBestScoreFromRawMatch(rawMatch: unknown) {
+  let home =
+    getNullableNumberFromPaths(rawMatch, [
+      'goals.home',
+      'score.home',
+      'scores.home',
+      'home_score',
+      'homeScore',
+      'home_goals',
+      'home.goals',
+      'home.score',
+      'home_team.score'
+    ]) ?? null
+
+  let away =
+    getNullableNumberFromPaths(rawMatch, [
+      'goals.away',
+      'score.away',
+      'scores.away',
+      'away_score',
+      'awayScore',
+      'away_goals',
+      'away.goals',
+      'away.score',
+      'away_team.score'
+    ]) ?? null
+
+  if (home === null || away === null) {
+    const parsedScore = parseScoreString(
+      getStringFromPaths(rawMatch, [
+        'score',
+        'result',
+        'fulltime',
+        'full_time',
+        'fulltime_score',
+        'final_score'
+      ])
+    )
+
+    home = parsedScore.home
+    away = parsedScore.away
+  }
 
   return {
     home,
@@ -202,18 +350,260 @@ function getBestScore(fixture: ApiFootballFixture) {
   }
 }
 
-export async function fetchApiFootballMatchData(apiFixtureId: number): Promise<RealMatchData> {
-  const [fixtureRows, statisticsRows, eventRows] = await Promise.all([
-    apiFootballRequest<ApiFootballFixture[]>(`/fixtures?id=${apiFixtureId}`),
-    apiFootballRequest<ApiFootballStatisticRow[]>(`/fixtures/statistics?fixture=${apiFixtureId}`),
-    apiFootballRequest<ApiFootballEvent[]>(`/fixtures/events?fixture=${apiFixtureId}`)
+function normaliseRawMatchToFixture(rawMatch: unknown): ApiFootballWorldCupFixture | null {
+  const id = getNumberFromPaths(rawMatch, ['fixture.id', 'id', 'match_id', 'matchId'])
+
+  if (!id) {
+    return null
+  }
+
+  const date =
+    getStringFromPaths(rawMatch, [
+      'fixture.date',
+      'date',
+      'datetime',
+      'starting_at',
+      'kickoff',
+      'kickoff_time',
+      'match_date'
+    ]) ?? ''
+
+  const homeTeamName =
+    getStringFromPaths(rawMatch, [
+      'teams.home.name',
+      'home.name',
+      'home_team.name',
+      'homeTeam.name',
+      'home_team',
+      'homeTeam',
+      'team_home'
+    ]) ?? 'Home team'
+
+  const awayTeamName =
+    getStringFromPaths(rawMatch, [
+      'teams.away.name',
+      'away.name',
+      'away_team.name',
+      'awayTeam.name',
+      'away_team',
+      'awayTeam',
+      'team_away'
+    ]) ?? 'Away team'
+
+  const score = getBestScoreFromRawMatch(rawMatch)
+
+  return {
+    fixture: {
+      id,
+      date,
+      venue: {
+        name: getStringFromPaths(rawMatch, [
+          'fixture.venue.name',
+          'venue.name',
+          'stadium.name',
+          'stadium',
+          'venue'
+        ]),
+        city: getStringFromPaths(rawMatch, [
+          'fixture.venue.city',
+          'venue.city',
+          'stadium.city',
+          'city'
+        ])
+      },
+      status: {
+        long: getStringFromPaths(rawMatch, [
+          'fixture.status.long',
+          'status.long',
+          'status.name',
+          'status',
+          'state.name'
+        ]),
+        short: getStringFromPaths(rawMatch, [
+          'fixture.status.short',
+          'status.short',
+          'status_code',
+          'state.short_name',
+          'state'
+        ]),
+        elapsed: getNullableNumberFromPaths(rawMatch, [
+          'fixture.status.elapsed',
+          'status.elapsed',
+          'elapsed',
+          'minute'
+        ])
+      }
+    },
+    league: {
+      id: getNumberFromPaths(rawMatch, ['league.id', 'competition.id']) ?? 2026,
+      name:
+        getStringFromPaths(rawMatch, [
+          'league.name',
+          'competition.name',
+          'tournament',
+          'competition'
+        ]) ?? 'FIFA World Cup 2026',
+      season: getNumberFromPaths(rawMatch, ['league.season', 'season', 'year']) ?? 2026,
+      round: getStringFromPaths(rawMatch, ['league.round', 'round', 'stage', 'phase', 'group'])
+    },
+    teams: {
+      home: {
+        id: getNumberFromPaths(rawMatch, [
+          'teams.home.id',
+          'home.id',
+          'home_team.id',
+          'homeTeam.id',
+          'home_team_id'
+        ]),
+        name: homeTeamName,
+        logo: getStringFromPaths(rawMatch, [
+          'teams.home.logo',
+          'home.logo',
+          'home_team.logo',
+          'homeTeam.logo',
+          'home_team_logo'
+        ])
+      },
+      away: {
+        id: getNumberFromPaths(rawMatch, [
+          'teams.away.id',
+          'away.id',
+          'away_team.id',
+          'awayTeam.id',
+          'away_team_id'
+        ]),
+        name: awayTeamName,
+        logo: getStringFromPaths(rawMatch, [
+          'teams.away.logo',
+          'away.logo',
+          'away_team.logo',
+          'awayTeam.logo',
+          'away_team_logo'
+        ])
+      }
+    },
+    goals: {
+      home: score.home,
+      away: score.away
+    }
+  }
+}
+
+function normaliseStatistics(rawStatistics: unknown): RealMatchData['statistics'] {
+  const rows = extractArray(rawStatistics)
+
+  return rows.map((row) => {
+    const statisticsValue = getValueFromPaths(row, ['statistics', 'stats', 'values'])
+
+    const statisticsRows = Array.isArray(statisticsValue)
+      ? statisticsValue
+      : isRecord(row)
+        ? Object.entries(row)
+            .filter(([key, value]) => {
+              return (
+                !['team', 'teamName', 'team_name', 'name', 'id', 'logo'].includes(key) &&
+                (typeof value === 'string' || typeof value === 'number' || value === null)
+              )
+            })
+            .map(([key, value]) => ({
+              type: key,
+              value: value as string | number | null
+            }))
+        : []
+
+    return {
+      teamId: getNumberFromPaths(row, ['team.id', 'team_id', 'participant_id']),
+      teamName: getStringFromPaths(row, ['team.name', 'teamName', 'team_name', 'name']) ?? 'Team',
+      teamLogo: getStringFromPaths(row, ['team.logo', 'teamLogo', 'team_logo', 'logo']),
+      statistics: statisticsRows
+        .map((statisticRow) => {
+          if (!isRecord(statisticRow)) {
+            return null
+          }
+
+          const type = getStringFromPaths(statisticRow, ['type', 'name', 'label']) ?? ''
+
+          const value = getValueFromPaths(statisticRow, ['value', 'stat'])
+
+          if (!type) {
+            return null
+          }
+
+          return {
+            type,
+            value:
+              typeof value === 'string' || typeof value === 'number' || value === null
+                ? value
+                : String(value ?? '')
+          }
+        })
+        .filter((row): row is { type: string; value: string | number | null } => Boolean(row))
+    }
+  })
+}
+
+function normaliseEvents(rawEvents: unknown): RealMatchData['events'] {
+  return extractArray(rawEvents).map((event) => ({
+    elapsed: getNullableNumberFromPaths(event, ['time.elapsed', 'elapsed', 'minute']),
+    extra: getNullableNumberFromPaths(event, ['time.extra', 'extra']),
+    teamName: getStringFromPaths(event, ['team.name', 'teamName', 'team_name', 'team']),
+    playerName: getStringFromPaths(event, ['player.name', 'playerName', 'player_name', 'player']),
+    assistName: getStringFromPaths(event, ['assist.name', 'assistName', 'assist_name', 'assist']),
+    type: getStringFromPaths(event, ['type', 'event_type']),
+    detail: getStringFromPaths(event, ['detail', 'description', 'event'])
+  }))
+}
+
+export async function fetchApiFootballLiveMatches() {
+  return apiFootballRequest<unknown>(WC26_ENDPOINTS.live)
+}
+
+export async function fetchApiFootballWorldCup2026Fixtures() {
+  const payload = await requestFirstSuccessful<unknown>([
+    WC26_ENDPOINTS.matches,
+    WC26_ENDPOINTS.schedule
   ])
 
-  const fixture = fixtureRows[0]
+  return extractArray(payload)
+    .map(normaliseRawMatchToFixture)
+    .filter((fixture): fixture is ApiFootballWorldCupFixture => Boolean(fixture))
+}
+
+export async function fetchApiFootballMatchData(apiFixtureId: number): Promise<RealMatchData> {
+  const rawMatchPayload = await requestFirstSuccessful<unknown>([
+    WC26_ENDPOINTS.matchById(apiFixtureId),
+    `/match/${apiFixtureId}`,
+    `/fixtures/${apiFixtureId}`
+  ])
+
+  const rawMatch = extractFirstItem(rawMatchPayload)
+  const fixture = normaliseRawMatchToFixture(rawMatch)
 
   if (!fixture) {
-    throw new Error('No fixture found for this API fixture ID')
+    throw new Error('No match found for this WC26 RapidAPI fixture ID.')
   }
+
+  const [statisticsResult, eventsResult] = await Promise.allSettled([
+    requestFirstSuccessful<unknown>([
+      WC26_ENDPOINTS.matchStatistics(apiFixtureId),
+      `/statistics?match=${apiFixtureId}`,
+      `/statistics?match_id=${apiFixtureId}`,
+      `/matches/${apiFixtureId}/statistics`
+    ]),
+    requestFirstSuccessful<unknown>([
+      WC26_ENDPOINTS.matchEvents(apiFixtureId),
+      `/events/${apiFixtureId}`,
+      `/events?match=${apiFixtureId}`,
+      `/events?match_id=${apiFixtureId}`,
+      `/matches/${apiFixtureId}/events`
+    ])
+  ])
+
+  const rawStatistics = statisticsResult.status === 'fulfilled' ? statisticsResult.value : []
+
+  const rawEvents = eventsResult.status === 'fulfilled' ? eventsResult.value : []
+
+  const score = getBestScoreFromRawMatch(rawMatch)
 
   return {
     provider: 'api-football',
@@ -234,26 +624,8 @@ export async function fetchApiFootballMatchData(apiFixtureId: number): Promise<R
       name: fixture.teams.away.name,
       logo: fixture.teams.away.logo
     },
-    score: getBestScore(fixture),
-    statistics: statisticsRows.map((row) => ({
-      teamId: row.team.id,
-      teamName: row.team.name,
-      teamLogo: row.team.logo,
-      statistics: row.statistics
-    })),
-    events: eventRows.map((event) => ({
-      elapsed: event.time.elapsed,
-      extra: event.time.extra,
-      teamName: event.team.name,
-      playerName: event.player.name,
-      assistName: event.assist.name,
-      type: event.type,
-      detail: event.detail
-    }))
+    score,
+    statistics: normaliseStatistics(rawStatistics),
+    events: normaliseEvents(rawEvents)
   }
-}
-export async function fetchApiFootballWorldCup2026Fixtures() {
-  return apiFootballRequest<ApiFootballWorldCupFixture[]>(
-    '/fixtures?league=1&season=2026&timezone=Asia/Kathmandu'
-  )
 }

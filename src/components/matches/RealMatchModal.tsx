@@ -105,35 +105,49 @@ export function RealMatchModal({
 
         <div className="p-5">
           <section className="rounded-3xl border border-white/10 bg-white/8 p-5">
-            <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-              <div className="flex items-center gap-3">
-                <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="lg" />
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-4">
+              <div className="min-w-0 text-center sm:flex sm:items-center sm:gap-3 sm:text-left">
+                <div className="mb-2 flex justify-center sm:mb-0">
+                  <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="md" />
+                </div>
 
-                <div>
-                  <p className="text-lg font-black text-white">{homeTeam?.name}</p>
-                  <p className="text-xs font-bold text-slate-500">{homeTeam?.shortName}</p>
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-black text-white sm:text-lg">
+                    {homeTeam?.name}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500 sm:text-xs">
+                    {homeTeam?.shortName}
+                  </p>
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-yellow-300/20 bg-yellow-300/10 px-6 py-4 text-center">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-yellow-200">
+              <div className="flex min-w-[92px] flex-col items-center rounded-2xl border border-yellow-300/20 bg-yellow-300/10 px-3 py-3 text-center sm:min-w-[150px] sm:px-6 sm:py-4">
+                <p className="w-full text-center text-[9px] font-black uppercase tracking-[0.14em] text-yellow-200 sm:text-xs sm:tracking-[0.2em]">
                   Actual
                 </p>
-                <p className="mt-1 text-4xl font-black text-white">
+
+                <p className="mt-1 w-full whitespace-nowrap text-center text-2xl font-black text-white sm:text-4xl">
                   {matchData?.score.display ?? '- - -'}
                 </p>
-                <p className="mt-1 text-xs font-bold text-slate-400">
+
+                <p className="mx-auto mt-1 w-full max-w-[88px] truncate text-center text-[10px] font-bold text-slate-400 sm:max-w-none sm:text-xs">
                   {matchData?.status.long ?? 'Not loaded'}
                 </p>
               </div>
 
-              <div className="flex items-center gap-3 sm:justify-end sm:text-right">
-                <div>
-                  <p className="text-lg font-black text-white">{awayTeam?.name}</p>
-                  <p className="text-xs font-bold text-slate-500">{awayTeam?.shortName}</p>
+              <div className="min-w-0 text-center sm:flex sm:items-center sm:justify-end sm:gap-3 sm:text-right">
+                <div className="mb-2 flex justify-center sm:order-2 sm:mb-0">
+                  <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="md" />
                 </div>
 
-                <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="lg" />
+                <div className="min-w-0 sm:order-1">
+                  <p className="truncate text-xs font-black text-white sm:text-lg">
+                    {awayTeam?.name}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500 sm:text-xs">
+                    {awayTeam?.shortName}
+                  </p>
+                </div>
               </div>
             </div>
 

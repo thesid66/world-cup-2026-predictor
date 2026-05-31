@@ -150,6 +150,14 @@ function getNullableNumberFromPaths(source: unknown, paths: string[]) {
   return null
 }
 
+function normaliseStatisticValue(value: unknown): RealMatchData['statistics'][number]['statistics'][number]['value'] {
+  if (typeof value === 'string' || typeof value === 'number' || value === null) {
+    return value
+  }
+
+  return String(value ?? '')
+}
+
 function extractArray(payload: unknown): unknown[] {
   if (Array.isArray(payload)) {
     return payload
@@ -245,7 +253,7 @@ async function apiFootballRequest<T>(path: string): Promise<T> {
     }
   })
 
-  let payload: unknown = null
+  let payload: unknown
 
   try {
     payload = await response.json()
@@ -511,33 +519,30 @@ function normaliseStatistics(rawStatistics: unknown): RealMatchData['statistics'
             }))
         : []
 
+    const statistics: RealMatchData['statistics'][number]['statistics'] = []
+
+    for (const statisticRow of statisticsRows) {
+      if (!isRecord(statisticRow)) {
+        continue
+      }
+
+      const type = getStringFromPaths(statisticRow, ['type', 'name', 'label']) ?? ''
+
+      if (!type) {
+        continue
+      }
+
+      statistics.push({
+        type,
+        value: normaliseStatisticValue(getValueFromPaths(statisticRow, ['value', 'stat']))
+      })
+    }
+
     return {
       teamId: getNumberFromPaths(row, ['team.id', 'team_id', 'participant_id']),
       teamName: getStringFromPaths(row, ['team.name', 'teamName', 'team_name', 'name']) ?? 'Team',
       teamLogo: getStringFromPaths(row, ['team.logo', 'teamLogo', 'team_logo', 'logo']),
-      statistics: statisticsRows
-        .map((statisticRow) => {
-          if (!isRecord(statisticRow)) {
-            return null
-          }
-
-          const type = getStringFromPaths(statisticRow, ['type', 'name', 'label']) ?? ''
-
-          const value = getValueFromPaths(statisticRow, ['value', 'stat'])
-
-          if (!type) {
-            return null
-          }
-
-          return {
-            type,
-            value:
-              typeof value === 'string' || typeof value === 'number' || value === null
-                ? value
-                : String(value ?? '')
-          }
-        })
-        .filter((row): row is { type: string; value: string | number | null } => Boolean(row))
+      statistics
     }
   })
 }

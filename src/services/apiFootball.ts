@@ -150,7 +150,9 @@ function getNullableNumberFromPaths(source: unknown, paths: string[]) {
   return null
 }
 
-function normaliseStatisticValue(value: unknown): RealMatchData['statistics'][number]['statistics'][number]['value'] {
+function normaliseStatisticValue(
+  value: unknown
+): RealMatchData['statistics'][number]['statistics'][number]['value'] {
   if (typeof value === 'string' || typeof value === 'number' || value === null) {
     return value
   }
@@ -350,11 +352,48 @@ function getBestScoreFromRawMatch(rawMatch: unknown) {
     away = parsedScore.away
   }
 
+  const status =
+    getStringFromPaths(rawMatch, [
+      'fixture.status.long',
+      'status.long',
+      'status.name',
+      'status',
+      'state.name'
+    ])?.toLowerCase() ?? ''
+
+  const played = getValueFromPaths(rawMatch, ['played'])
+
+  const minute =
+    getNullableNumberFromPaths(rawMatch, [
+      'fixture.status.elapsed',
+      'status.elapsed',
+      'elapsed',
+      'minute'
+    ]) ?? 0
+
+  let display = 'Not available'
+
+  if (typeof home === 'number' && typeof away === 'number') {
+    display = `${home} - ${away}`
+  } else if (
+    status.includes('scheduled') ||
+    status.includes('not started') ||
+    played === false ||
+    minute === 0
+  ) {
+    display = 'Scheduled'
+  } else if (status.includes('live') || minute > 0) {
+    display = 'Live'
+  } else if (status.includes('postponed')) {
+    display = 'Postponed'
+  } else if (status.includes('cancelled') || status.includes('canceled')) {
+    display = 'Cancelled'
+  }
+
   return {
     home,
     away,
-    display:
-      typeof home === 'number' && typeof away === 'number' ? `${home} - ${away}` : 'Not available'
+    display
   }
 }
 

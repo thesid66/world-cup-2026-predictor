@@ -150,15 +150,13 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
           </div>
         </div>
 
-        <div className="relative mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-5">
-          <span className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-yellow-200 shadow-lg">
+        <div className="relative mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-8 sm:mt-6 sm:pt-5">
+          <span className="absolute left-3 right-3 top-0 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-center text-[9px] font-black uppercase tracking-[0.12em] text-yellow-200 shadow-lg sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:whitespace-nowrap sm:text-[10px] sm:tracking-[0.18em]">
             {formatNepalFixtureDateTime(fixture)} NPT
           </span>
-
           <p className="text-xs font-bold text-slate-500">
             {fixture.venue}, {fixture.city}
           </p>
-
           <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-600">
             Click for real data
           </p>

@@ -61,11 +61,11 @@ export function RealMatchModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-70 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-9999 flex items-end justify-center bg-black/70 p-2 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
       <article
-        className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-4xl border border-white/10 bg-slate-950 shadow-2xl"
+        className="max-h-[94svh] w-full max-w-5xl overflow-y-auto rounded-t-3xl border border-white/10 bg-slate-950 shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem]"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/95 p-5 backdrop-blur-xl">
@@ -105,7 +105,7 @@ export function RealMatchModal({
 
         <div className="p-5">
           <section className="rounded-3xl border border-white/10 bg-white/8 p-5">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+            <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
               <div className="flex items-center gap-3">
                 <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="lg" />
 
@@ -127,7 +127,7 @@ export function RealMatchModal({
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-3 text-right">
+              <div className="flex items-center gap-3 sm:justify-end sm:text-right">
                 <div>
                   <p className="text-lg font-black text-white">{awayTeam?.name}</p>
                   <p className="text-xs font-bold text-slate-500">{awayTeam?.shortName}</p>

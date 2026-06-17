@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTournamentData } from '../../context/TournamentDataContext'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import type { Fixture } from '../../types/tournament'
+import { formatNepalFixtureDateTime, getFixtureKickoffDate } from '../../utils/fixtureTime'
 import { MatchScoreCard } from './MatchScoreCard'
 
 const REAL_MATCH_PRELOAD_BATCH_SIZE = 6
@@ -37,7 +38,33 @@ function sortFixturesByDateAndTime(a: Fixture, b: Fixture) {
   return a.matchNumber - b.matchNumber
 }
 
+function getFixtureElementId(fixtureId: string) {
+  return `fixture-${fixtureId}`
+}
+
+function getNextMatchFixture(fixtures: Fixture[]) {
+  const now = Date.now()
+
+  const datedFixtures = fixtures
+    .map((fixture) => ({
+      fixture,
+      kickoffDate: getFixtureKickoffDate(fixture)
+    }))
+    .filter(
+      (entry): entry is { fixture: Fixture; kickoffDate: Date } =>
+        entry.kickoffDate instanceof Date
+    )
+
+  const nextUpcomingFixture = datedFixtures.find(
+    (entry) => entry.kickoffDate.getTime() >= now
+  )
+
+  return nextUpcomingFixture?.fixture ?? datedFixtures.at(-1)?.fixture ?? fixtures[0] ?? null
+}
+
 export function GroupStageSection() {
+  const [highlightedFixtureId, setHighlightedFixtureId] = useState<string | null>(null)
+
   const scores = usePredictionStore((state) => state.scores)
   const resetPredictions = usePredictionStore((state) => state.resetPredictions)
   const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
@@ -46,6 +73,11 @@ export function GroupStageSection() {
   const groupStageFixtures = useMemo(
     () => fixtures.filter((fixture) => fixture.stage === 'group').sort(sortFixturesByDateAndTime),
     [fixtures]
+  )
+
+  const nextMatchFixture = useMemo(
+    () => getNextMatchFixture(groupStageFixtures),
+    [groupStageFixtures]
   )
 
   useEffect(() => {
@@ -69,6 +101,27 @@ export function GroupStageSection() {
       cancelled = true
     }
   }, [fetchMatchData, groupStageFixtures])
+
+  function handleJumpToNextMatch() {
+    if (!nextMatchFixture) {
+      return
+    }
+
+    const nextMatchElement = document.getElementById(getFixtureElementId(nextMatchFixture.id))
+
+    nextMatchElement?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    })
+
+    setHighlightedFixtureId(nextMatchFixture.id)
+
+    window.setTimeout(() => {
+      setHighlightedFixtureId((currentFixtureId) =>
+        currentFixtureId === nextMatchFixture.id ? null : currentFixtureId
+      )
+    }, 2400)
+  }
 
   const completedMatches = groupStageFixtures.filter((fixture) =>
     isFixtureCompleted(fixture, scores)
@@ -162,11 +215,31 @@ export function GroupStageSection() {
                 fixture={fixture}
                 homeTeam={homeTeam}
                 awayTeam={awayTeam}
+                domId={getFixtureElementId(fixture.id)}
+                highlighted={highlightedFixtureId === fixture.id}
               />
             )
           })}
         </div>
       </div>
+
+      {nextMatchFixture && (
+        <button
+          type="button"
+          onClick={handleJumpToNextMatch}
+          className="fixed bottom-5 right-5 z-40 max-w-[calc(100vw-2rem)] rounded-2xl border border-yellow-200/40 bg-slate-950/95 px-4 py-3 text-left shadow-2xl shadow-black/40 ring-1 ring-white/10 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-yellow-200 hover:bg-slate-900 sm:bottom-6 sm:right-6 sm:px-5"
+        >
+          <span className="block text-xs font-black uppercase tracking-[0.22em] text-yellow-200">
+            Jump to next match
+          </span>
+          <span className="mt-1 block text-sm font-black text-white">
+            Match {nextMatchFixture.matchNumber}
+          </span>
+          <span className="mt-0.5 block text-xs font-bold text-slate-400">
+            {formatNepalFixtureDateTime(nextMatchFixture)} NPT
+          </span>
+        </button>
+      )}
     </section>
   )
 }

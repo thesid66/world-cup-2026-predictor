@@ -7,7 +7,6 @@ import { RoundOf32Bracket } from '../components/knockout/RoundOf32Bracket'
 import { GroupStandingsSection } from '../components/groups/GroupStandingsSection'
 import { RoundOf16Bracket } from '../components/knockout/RoundOf16Bracket'
 import { FinalRounds } from '../components/knockout/FinalRounds'
-import { ApiFootballFixtureMapper } from '../components/dev/ApiFootballFixtureMapper'
 import { TournamentDataProvider, useTournamentData } from '../context/TournamentDataContext'
 
 function AppContent() {
@@ -16,7 +15,6 @@ function AppContent() {
 
   const completedMatches = fixtures.filter((fixture) => {
     const score = scores[fixture.id]
-
     return typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
   }).length
 
@@ -65,7 +63,6 @@ function AppContent() {
       <RoundOf32Bracket />
       <RoundOf16Bracket />
       <FinalRounds />
-      <ApiFootballFixtureMapper />
     </AppShell>
   )
 }

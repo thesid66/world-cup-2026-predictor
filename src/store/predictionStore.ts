@@ -6,6 +6,7 @@ type PredictionState = {
   scores: Record<string, PredictionScore>
   updateScore: (fixtureId: string, field: 'homeScore' | 'awayScore', value: number | null) => void
   setWinnerTeam: (fixtureId: string, winnerTeamId: string) => void
+  replaceScores: (scores: Record<string, PredictionScore>) => void
   resetPredictions: () => void
 }
 
@@ -59,6 +60,10 @@ export const usePredictionStore = create<PredictionState>()(
             }
           }
         })
+      },
+
+      replaceScores: (scores) => {
+        set({ scores })
       },
 
       resetPredictions: () => {

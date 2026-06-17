@@ -104,13 +104,28 @@ function readFirstValue(row: Record<string, unknown>, keys: string[]) {
   return undefined
 }
 
-function readTextValue(value: unknown) {
+function readTextValue(value: unknown): string {
   if (typeof value === 'string' || typeof value === 'number') {
-    return String(value)
+    return String(value).trim()
   }
 
   if (isRecord(value)) {
-    const nestedValue = readFirstValue(value, ['name', 'teamName', 'team_name', 'title', 'label'])
+    const nestedValue = readFirstValue(value, [
+      'name',
+      'fullName',
+      'full_name',
+      'displayName',
+      'display_name',
+      'teamName',
+      'team_name',
+      'playerName',
+      'player_name',
+      'title',
+      'label',
+      'text',
+      'value'
+    ])
+
     return readTextValue(nestedValue)
   }
 
@@ -162,10 +177,7 @@ function normalizeTeamStatRows(rows: unknown[]): RealMatchStatistic[] {
 
       if (!type) return
 
-      statistics.push({
-        type,
-        value: toStatisticValue(row[1])
-      })
+      statistics.push({ type, value: toStatisticValue(row[1]) })
       return
     }
 
@@ -403,6 +415,56 @@ function toOptionalNumber(value: unknown): number | null | undefined {
   return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : undefined
 }
 
+function readIncidentText(incident: Record<string, unknown>, keys: string[]) {
+  return readTextValue(readFirstValue(incident, keys)) || undefined
+}
+
+function readIncidentScore(incident: Record<string, unknown>) {
+  const score = readIncidentText(incident, ['score', 'scoreDisplay', 'score_display', 'result'])
+
+  if (score) {
+    return score
+  }
+
+  const homeScore = readFirstValue(incident, ['home_score', 'homeScore', 'home_team_score'])
+  const awayScore = readFirstValue(incident, ['away_score', 'awayScore', 'away_team_score'])
+
+  if (homeScore !== undefined && awayScore !== undefined) {
+    return `${homeScore} - ${awayScore}`
+  }
+
+  return undefined
+}
+
+function normalizeIncidentTeamName(teamValue: unknown, match: SportScoreMatch) {
+  const teamText = readTextValue(teamValue)
+  const normalizedTeamText = teamText.toLowerCase()
+
+  if (['home', 'local', 'home team', 'local team'].includes(normalizedTeamText)) {
+    return match.home
+  }
+
+  if (['away', 'visitor', 'away team', 'visitor team'].includes(normalizedTeamText)) {
+    return match.away
+  }
+
+  return teamText || undefined
+}
+
+function buildEventDisplayText(type: string, playerName?: string, secondaryPlayerName?: string) {
+  const normalizedType = type.toLowerCase()
+
+  if (normalizedType.includes('substitution')) {
+    if (playerName && secondaryPlayerName) {
+      return `${secondaryPlayerName} → ${playerName}`
+    }
+
+    return playerName || secondaryPlayerName
+  }
+
+  return playerName
+}
+
 function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
   if (!Array.isArray(match.incidents)) {
     return []
@@ -413,23 +475,90 @@ function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
   match.incidents.forEach((incident) => {
     if (!isRecord(incident)) return
 
-    const player = readFirstValue(incident, ['player', 'playerName', 'player_name'])
-    const assist = readFirstValue(incident, ['assist', 'assistName', 'assist_name'])
-    const team = readFirstValue(incident, ['team', 'teamName', 'team_name'])
-    const type = String(readFirstValue(incident, ['type', 'incident_type', 'kind']) ?? '')
-    const detail = String(readFirstValue(incident, ['detail', 'text', 'description']) ?? '')
-    const playerName = typeof player === 'string' ? player : undefined
+    const type = readIncidentText(incident, [
+      'type',
+      'type_name',
+      'typeName',
+      'incident_type',
+      'incidentType',
+      'kind',
+      'name',
+      'event'
+    ]) ?? ''
 
-    if (!type && !playerName) return
+    const playerName = readIncidentText(incident, [
+      'player',
+      'playerName',
+      'player_name',
+      'player1',
+      'player_1',
+      'main_player',
+      'mainPlayer',
+      'in_player',
+      'inPlayer',
+      'player_in',
+      'playerIn',
+      'subIn',
+      'sub_in',
+      'player_in_name',
+      'in_name'
+    ])
+
+    const secondaryPlayerName = readIncidentText(incident, [
+      'secondaryPlayer',
+      'secondary_player',
+      'player2',
+      'player_2',
+      'related_player',
+      'relatedPlayer',
+      'out_player',
+      'outPlayer',
+      'player_out',
+      'playerOut',
+      'subOut',
+      'sub_out',
+      'player_out_name',
+      'out_name'
+    ])
+
+    const assistName = readIncidentText(incident, [
+      'assist',
+      'assistName',
+      'assist_name',
+      'assist_player',
+      'assistPlayer',
+      'assist_player_name'
+    ])
+
+    const teamValue = readFirstValue(incident, [
+      'team',
+      'teamName',
+      'team_name',
+      'team_name_en',
+      'teamNameEn',
+      'side',
+      'position',
+      'team_type',
+      'teamType'
+    ])
+
+    const teamName = normalizeIncidentTeamName(teamValue, match)
+    const detail = readIncidentText(incident, ['detail', 'text', 'description', 'comment', 'reason']) ?? ''
+    const scoreDisplay = readIncidentScore(incident)
+
+    if (!type && !playerName && !secondaryPlayerName && !detail) return
 
     events.push({
       elapsed: toOptionalNumber(readFirstValue(incident, ['minute', 'elapsed', 'time'])),
       extra: toOptionalNumber(readFirstValue(incident, ['extra', 'extra_time', 'addedTime'])),
-      teamName: typeof team === 'string' ? team : readTextValue(team) || undefined,
+      teamName,
       playerName,
-      assistName: typeof assist === 'string' ? assist : readTextValue(assist) || undefined,
+      secondaryPlayerName,
+      assistName,
       type,
-      detail
+      detail,
+      scoreDisplay,
+      displayText: buildEventDisplayText(type, playerName, secondaryPlayerName)
     })
   })
 

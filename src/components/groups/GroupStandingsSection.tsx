@@ -1,7 +1,9 @@
-import { groups } from '../../data/groups'
+import { useTournamentData } from '../../context/TournamentDataContext'
 import { GroupStandings } from './GroupStandings'
 
 export function GroupStandingsSection() {
+  const { groups } = useTournamentData()
+
   return (
     <section id="standings" className="mt-6 scroll-mt-6">
       <div className="mb-6 overflow-hidden rounded-4xl border border-white/10 bg-slate-950/50 shadow-2xl backdrop-blur-xl">

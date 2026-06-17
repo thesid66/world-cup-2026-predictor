@@ -88,6 +88,8 @@ export function PredictionSyncProvider({ children }: PredictionSyncProviderProps
       return
     }
 
+    const userId = user.id
+    const userEmail = user.email
     let cancelled = false
 
     async function loadUserPredictions() {
@@ -99,11 +101,11 @@ export function PredictionSyncProvider({ children }: PredictionSyncProviderProps
         setCloudReady(false)
         skipNextSaveRef.current = true
 
-        const result = await loadAndMigrateUserPredictions(user.id, user.email, localScores)
+        const result = await loadAndMigrateUserPredictions(userId, userEmail, localScores)
 
         if (cancelled) return
 
-        previousUserIdRef.current = user.id
+        previousUserIdRef.current = userId
         setPredictionSetId(result.predictionSetId)
         replaceScores(result.scores)
         setCloudReady(true)
@@ -133,6 +135,8 @@ export function PredictionSyncProvider({ children }: PredictionSyncProviderProps
       return
     }
 
+    const userId = user.id
+
     if (skipNextSaveRef.current) {
       skipNextSaveRef.current = false
       return
@@ -141,7 +145,7 @@ export function PredictionSyncProvider({ children }: PredictionSyncProviderProps
     setStatus('saving')
 
     const timer = window.setTimeout(() => {
-      savePredictionScores(predictionSetId, user.id, scores)
+      savePredictionScores(predictionSetId, userId, scores)
         .then(() => {
           setStatus('synced')
         })

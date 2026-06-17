@@ -7,6 +7,7 @@ import { formatNepalFixtureDateTime, getFixtureKickoffDate } from '../../utils/f
 import { MatchScoreCard } from './MatchScoreCard'
 
 const REAL_MATCH_PRELOAD_BATCH_SIZE = 6
+const JUMP_BUTTON_AUTO_HIDE_MS = 7000
 
 function isFixtureCompleted(
   fixture: Fixture,
@@ -64,6 +65,7 @@ function getNextMatchFixture(fixtures: Fixture[]) {
 
 export function GroupStageSection() {
   const [highlightedFixtureId, setHighlightedFixtureId] = useState<string | null>(null)
+  const [isJumpButtonVisible, setIsJumpButtonVisible] = useState(true)
 
   const scores = usePredictionStore((state) => state.scores)
   const resetPredictions = usePredictionStore((state) => state.resetPredictions)
@@ -102,6 +104,55 @@ export function GroupStageSection() {
     }
   }, [fetchMatchData, groupStageFixtures])
 
+  useEffect(() => {
+    if (!nextMatchFixture) {
+      return
+    }
+
+    setIsJumpButtonVisible(true)
+
+    const autoHideTimer = window.setTimeout(() => {
+      setIsJumpButtonVisible(false)
+    }, JUMP_BUTTON_AUTO_HIDE_MS)
+
+    return () => {
+      window.clearTimeout(autoHideTimer)
+    }
+  }, [nextMatchFixture?.id])
+
+  useEffect(() => {
+    if (!nextMatchFixture) {
+      return
+    }
+
+    const nextMatchElement = document.getElementById(getFixtureElementId(nextMatchFixture.id))
+
+    if (!nextMatchElement) {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const hasReachedNextMatch = entries.some(
+          (entry) => entry.isIntersecting && entry.intersectionRatio >= 0.45
+        )
+
+        if (hasReachedNextMatch) {
+          setIsJumpButtonVisible(false)
+        }
+      },
+      {
+        threshold: [0.45, 0.6]
+      }
+    )
+
+    observer.observe(nextMatchElement)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [nextMatchFixture])
+
   function handleJumpToNextMatch() {
     if (!nextMatchFixture) {
       return
@@ -114,6 +165,7 @@ export function GroupStageSection() {
       block: 'center'
     })
 
+    setIsJumpButtonVisible(false)
     setHighlightedFixtureId(nextMatchFixture.id)
 
     window.setTimeout(() => {
@@ -223,11 +275,11 @@ export function GroupStageSection() {
         </div>
       </div>
 
-      {nextMatchFixture && (
+      {nextMatchFixture && isJumpButtonVisible && (
         <button
           type="button"
           onClick={handleJumpToNextMatch}
-          className="fixed bottom-5 right-5 z-40 max-w-[calc(100vw-2rem)] rounded-2xl border border-yellow-200/40 bg-slate-950/95 px-4 py-3 text-left shadow-2xl shadow-black/40 ring-1 ring-white/10 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-yellow-200 hover:bg-slate-900 sm:bottom-6 sm:right-6 sm:px-5"
+          className="fixed bottom-28 right-4 z-40 max-w-[calc(100vw-2rem)] rounded-2xl border border-yellow-200/40 bg-slate-950/95 px-4 py-3 text-left shadow-2xl shadow-black/40 ring-1 ring-white/10 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-yellow-200 hover:bg-slate-900 sm:bottom-8 sm:right-6 sm:px-5"
         >
           <span className="block text-xs font-black uppercase tracking-[0.22em] text-yellow-200">
             Jump to next match

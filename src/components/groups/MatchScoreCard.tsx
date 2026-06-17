@@ -11,6 +11,8 @@ type MatchScoreCardProps = {
   fixture: Fixture
   homeTeam?: Team
   awayTeam?: Team
+  domId?: string
+  highlighted?: boolean
 }
 
 type LoadRealDataStatus = 'idle' | 'copied' | 'unavailable' | 'error'
@@ -38,7 +40,13 @@ function hasUsableActualScore(
   return typeof score?.home === 'number' && typeof score.away === 'number'
 }
 
-export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardProps) {
+export function MatchScoreCard({
+  fixture,
+  homeTeam,
+  awayTeam,
+  domId,
+  highlighted = false
+}: MatchScoreCardProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [loadRealDataStatus, setLoadRealDataStatus] = useState<LoadRealDataStatus>('idle')
   const [copyingRealData, setCopyingRealData] = useState(false)
@@ -96,6 +104,7 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
   return (
     <>
       <article
+        id={domId}
         role="button"
         tabIndex={0}
         onClick={() => setModalOpen(true)}
@@ -104,10 +113,12 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
             setModalOpen(true)
           }
         }}
-        className={`group cursor-pointer overflow-hidden rounded-2xl border p-4 shadow-lg transition hover:-translate-y-0.5 ${
-          isCompleted
-            ? 'border-emerald-300/25 bg-emerald-300/10'
-            : 'border-white/10 bg-slate-950/45 hover:border-yellow-300/25 hover:bg-white/8'
+        className={`group scroll-mt-28 cursor-pointer overflow-hidden rounded-2xl border p-4 shadow-lg transition hover:-translate-y-0.5 ${
+          highlighted
+            ? 'border-yellow-200/70 bg-yellow-300/15 ring-4 ring-yellow-300/40'
+            : isCompleted
+              ? 'border-emerald-300/25 bg-emerald-300/10'
+              : 'border-white/10 bg-slate-950/45 hover:border-yellow-300/25 hover:bg-white/8'
         }`}
       >
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

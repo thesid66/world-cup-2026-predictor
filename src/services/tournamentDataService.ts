@@ -37,7 +37,9 @@ type DatabaseGroup = {
 
 type DatabaseApiFixtureMapping = {
   local_fixture_id: string
-  api_fixture_id: number
+  api_fixture_id: number | null
+  api_fixture_slug: string | null
+  api_match_url: string | null
 }
 
 export type TournamentData = {
@@ -45,6 +47,8 @@ export type TournamentData = {
   groups: Group[]
   fixtures: Fixture[]
   apiFootballFixtureIdMap: Record<string, number>
+  sportScoreFixtureSlugMap: Record<string, string>
+  sportScoreFixtureUrlMap: Record<string, string>
   source: 'database' | 'local'
 }
 
@@ -130,9 +134,32 @@ function mapDatabaseGroup(row: DatabaseGroup): Group {
   }
 }
 
-function buildApiFixtureIdMap(rows: DatabaseApiFixtureMapping[]) {
+function buildApiFootballFixtureIdMap(rows: DatabaseApiFixtureMapping[]) {
   return rows.reduce<Record<string, number>>((map, row) => {
-    map[row.local_fixture_id] = row.api_fixture_id
+    if (typeof row.api_fixture_id === 'number') {
+      map[row.local_fixture_id] = row.api_fixture_id
+    }
+
+    return map
+  }, {})
+}
+
+function buildSportScoreFixtureSlugMap(rows: DatabaseApiFixtureMapping[]) {
+  return rows.reduce<Record<string, string>>((map, row) => {
+    if (row.api_fixture_slug) {
+      map[row.local_fixture_id] = row.api_fixture_slug
+    }
+
+    return map
+  }, {})
+}
+
+function buildSportScoreFixtureUrlMap(rows: DatabaseApiFixtureMapping[]) {
+  return rows.reduce<Record<string, string>>((map, row) => {
+    if (row.api_match_url) {
+      map[row.local_fixture_id] = row.api_match_url
+    }
+
     return map
   }, {})
 }
@@ -143,6 +170,8 @@ function getLocalTournamentData(): TournamentData {
     groups: localGroups,
     fixtures: localFixtures,
     apiFootballFixtureIdMap: localApiFootballFixtureIdMap,
+    sportScoreFixtureSlugMap: {},
+    sportScoreFixtureUrlMap: {},
     source: 'local'
   }
 }
@@ -172,11 +201,18 @@ export async function loadTournamentData(): Promise<TournamentData> {
       throw new Error('Database tournament data is not ready.')
     }
 
+    const databaseTeams = teamsResult.data as DatabaseTeam[]
+    const databaseGroups = groupsResult.data as DatabaseGroup[]
+    const databaseFixtures = fixturesResult.data as DatabaseFixture[]
+    const databaseMappings = (mappingsResult.data ?? []) as DatabaseApiFixtureMapping[]
+
     return {
-      teams: teamsResult.data.map(mapDatabaseTeam),
-      groups: groupsResult.data.map(mapDatabaseGroup),
-      fixtures: fixturesResult.data.map(mapDatabaseFixture),
-      apiFootballFixtureIdMap: buildApiFixtureIdMap(mappingsResult.data ?? []),
+      teams: databaseTeams.map(mapDatabaseTeam),
+      groups: databaseGroups.map(mapDatabaseGroup),
+      fixtures: databaseFixtures.map(mapDatabaseFixture),
+      apiFootballFixtureIdMap: buildApiFootballFixtureIdMap(databaseMappings),
+      sportScoreFixtureSlugMap: buildSportScoreFixtureSlugMap(databaseMappings),
+      sportScoreFixtureUrlMap: buildSportScoreFixtureUrlMap(databaseMappings),
       source: 'database'
     }
   } catch {

@@ -13,6 +13,8 @@ type MatchScoreCardProps = {
   awayTeam?: Team
 }
 
+type LoadRealDataStatus = 'idle' | 'copied' | 'unavailable' | 'error'
+
 function parseScoreValue(value: string): number | null {
   if (value === '') return null
 
@@ -25,17 +27,26 @@ function parseScoreValue(value: string): number | null {
   return parsed
 }
 
+function hasUsableActualScore(score?: { home: number | null; away: number | null }) {
+  return typeof score?.home === 'number' && typeof score.away === 'number'
+}
+
 export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardProps) {
   const [modalOpen, setModalOpen] = useState(false)
+  const [loadRealDataStatus, setLoadRealDataStatus] = useState<LoadRealDataStatus>('idle')
+  const [copyingRealData, setCopyingRealData] = useState(false)
 
   const score = usePredictionStore((state) => state.scores[fixture.id])
   const updateScore = usePredictionStore((state) => state.updateScore)
 
   const realMatch = useRealMatchStore((state) => state.matches[fixture.id])
   const realMatchLoading = useRealMatchStore((state) => state.loading[fixture.id])
+  const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
 
   const isCompleted = typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
   const hasSportScoreData = canFetchSportScoreMatchData(fixture)
+  const hasActualScore = hasUsableActualScore(realMatch?.score)
+  const isLoadRealDataDisabled = !hasSportScoreData || realMatchLoading || copyingRealData
 
   const actualScoreLabel = realMatch
     ? realMatch.score.display
@@ -44,6 +55,36 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
         ? 'Loading...'
         : 'Not loaded'
       : 'Not linked'
+
+  async function handleLoadRealData(event: React.MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation()
+
+    if (!hasSportScoreData || copyingRealData) {
+      return
+    }
+
+    setCopyingRealData(true)
+    setLoadRealDataStatus('idle')
+
+    try {
+      await fetchMatchData(fixture, true)
+
+      const latestRealMatch = useRealMatchStore.getState().matches[fixture.id]
+
+      if (!hasUsableActualScore(latestRealMatch?.score)) {
+        setLoadRealDataStatus('unavailable')
+        return
+      }
+
+      updateScore(fixture.id, 'homeScore', latestRealMatch.score.home)
+      updateScore(fixture.id, 'awayScore', latestRealMatch.score.away)
+      setLoadRealDataStatus('copied')
+    } catch {
+      setLoadRealDataStatus('error')
+    } finally {
+      setCopyingRealData(false)
+    }
+  }
 
   return (
     <>
@@ -111,9 +152,10 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
                 type="number"
                 min={0}
                 value={score?.homeScore ?? ''}
-                onChange={(event) =>
+                onChange={(event) => {
+                  setLoadRealDataStatus('idle')
                   updateScore(fixture.id, 'homeScore', parseScoreValue(event.target.value))
-                }
+                }}
                 className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10"
               />
 
@@ -123,9 +165,10 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
                 type="number"
                 min={0}
                 value={score?.awayScore ?? ''}
-                onChange={(event) =>
+                onChange={(event) => {
+                  setLoadRealDataStatus('idle')
                   updateScore(fixture.id, 'awayScore', parseScoreValue(event.target.value))
-                }
+                }}
                 className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10"
               />
             </div>
@@ -136,6 +179,33 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
               </p>
               <p className="mt-0.5 text-sm font-black text-white">{actualScoreLabel}</p>
             </div>
+
+            <button
+              type="button"
+              disabled={isLoadRealDataDisabled}
+              onClick={handleLoadRealData}
+              className="mt-2 w-full rounded-xl border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100 transition hover:border-emerald-200 hover:bg-emerald-300/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
+            >
+              {copyingRealData || realMatchLoading ? 'Loading real data...' : 'Load real data'}
+            </button>
+
+            {loadRealDataStatus !== 'idle' && (
+              <p
+                className={`mt-2 text-center text-[10px] font-bold ${
+                  loadRealDataStatus === 'copied'
+                    ? 'text-emerald-200'
+                    : loadRealDataStatus === 'unavailable'
+                      ? 'text-yellow-200'
+                      : 'text-red-200'
+                }`}
+              >
+                {loadRealDataStatus === 'copied'
+                  ? 'Prediction replaced with actual score.'
+                  : loadRealDataStatus === 'unavailable'
+                    ? 'Actual score is not available yet.'
+                    : 'Could not load real data.'}
+              </p>
+            )}
           </div>
 
           <div className="flex min-w-0 items-center justify-end gap-3 text-right">

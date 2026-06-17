@@ -4,12 +4,24 @@ import { canFetchSportScoreMatchData, fetchSportScoreMatchDataForFixture } from 
 import type { RealMatchData } from '../types/realMatch'
 import type { Fixture } from '../types/tournament'
 
+const REAL_MATCH_CACHE_TTL_MS = 60 * 1000
+
 type RealMatchState = {
   matches: Record<string, RealMatchData>
   loading: Record<string, boolean>
   errors: Record<string, string | null>
   fetchMatchData: (fixture: Fixture, force?: boolean) => Promise<void>
   clearRealMatchCache: () => void
+}
+
+function isRealMatchCacheFresh(matchData: RealMatchData) {
+  const fetchedAtTime = Date.parse(matchData.fetchedAt)
+
+  if (Number.isNaN(fetchedAtTime)) {
+    return false
+  }
+
+  return Date.now() - fetchedAtTime < REAL_MATCH_CACHE_TTL_MS
 }
 
 export const useRealMatchStore = create<RealMatchState>()(
@@ -32,7 +44,7 @@ export const useRealMatchStore = create<RealMatchState>()(
 
         const existing = get().matches[fixture.id]
 
-        if (existing && !force) {
+        if (existing && !force && isRealMatchCacheFresh(existing)) {
           return
         }
 

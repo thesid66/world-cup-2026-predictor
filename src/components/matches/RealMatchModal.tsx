@@ -1,6 +1,7 @@
 import { RefreshCw, X } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import type { Fixture, Team } from '../../types/tournament'
 import type { RealMatchStatistic } from '../../types/realMatch'
@@ -13,6 +14,13 @@ type RealMatchModalProps = {
   awayTeam?: Team
   open: boolean
   onClose: () => void
+}
+
+type LoadRealDataStatus = 'idle' | 'copied' | 'unavailable' | 'error'
+
+type UsableActualScore = {
+  home: number
+  away: number
 }
 
 const featuredStats = [
@@ -51,6 +59,12 @@ function getAvailableStatTypes(homeStats: RealMatchStatistic[], awayStats: RealM
   return [...matchedFeaturedStats, ...extraStats]
 }
 
+function hasUsableActualScore(
+  score?: { home: number | null; away: number | null }
+): score is UsableActualScore {
+  return typeof score?.home === 'number' && typeof score.away === 'number'
+}
+
 export function RealMatchModal({
   fixture,
   homeTeam,
@@ -58,16 +72,30 @@ export function RealMatchModal({
   open,
   onClose
 }: RealMatchModalProps) {
+  const [loadRealDataStatus, setLoadRealDataStatus] = useState<LoadRealDataStatus>('idle')
+  const [copyingRealData, setCopyingRealData] = useState(false)
+
   const matchData = useRealMatchStore((state) => state.matches[fixture.id])
   const loading = useRealMatchStore((state) => state.loading[fixture.id])
   const error = useRealMatchStore((state) => state.errors[fixture.id])
   const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
+  const updateScore = usePredictionStore((state) => state.updateScore)
 
   useEffect(() => {
     if (open) {
-      void fetchMatchData(fixture)
+      const cachedMatch = useRealMatchStore.getState().matches[fixture.id]
+      const shouldForceRefresh = !cachedMatch?.statistics.length
+
+      void fetchMatchData(fixture, shouldForceRefresh)
     }
   }, [fetchMatchData, fixture, open])
+
+  useEffect(() => {
+    if (!open) {
+      setLoadRealDataStatus('idle')
+      setCopyingRealData(false)
+    }
+  }, [open])
 
   if (!open) {
     return null
@@ -77,6 +105,36 @@ export function RealMatchModal({
   const awayStats = matchData?.statistics[1]?.statistics ?? []
   const availableStatTypes = getAvailableStatTypes(homeStats, awayStats)
   const hasSportScoreData = canFetchSportScoreMatchData(fixture)
+  const isLoadRealDataDisabled = !hasSportScoreData || loading || copyingRealData
+
+  async function handleLoadRealData() {
+    if (!hasSportScoreData || copyingRealData) {
+      return
+    }
+
+    setCopyingRealData(true)
+    setLoadRealDataStatus('idle')
+
+    try {
+      await fetchMatchData(fixture, true)
+
+      const latestRealMatch = useRealMatchStore.getState().matches[fixture.id]
+      const latestScore = latestRealMatch?.score
+
+      if (!hasUsableActualScore(latestScore)) {
+        setLoadRealDataStatus('unavailable')
+        return
+      }
+
+      updateScore(fixture.id, 'homeScore', latestScore.home)
+      updateScore(fixture.id, 'awayScore', latestScore.away)
+      setLoadRealDataStatus('copied')
+    } catch {
+      setLoadRealDataStatus('error')
+    } finally {
+      setCopyingRealData(false)
+    }
+  }
 
   return createPortal(
     <div
@@ -101,7 +159,16 @@ export function RealMatchModal({
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={isLoadRealDataDisabled}
+                onClick={handleLoadRealData}
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-300/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-100 transition hover:bg-emerald-300/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
+              >
+                {copyingRealData || loading ? 'Loading real data...' : 'Load real data'}
+              </button>
+
               <button
                 type="button"
                 onClick={() => fetchMatchData(fixture, true)}
@@ -120,6 +187,24 @@ export function RealMatchModal({
               </button>
             </div>
           </div>
+
+          {loadRealDataStatus !== 'idle' && (
+            <p
+              className={`mt-3 text-right text-xs font-bold ${
+                loadRealDataStatus === 'copied'
+                  ? 'text-emerald-200'
+                  : loadRealDataStatus === 'unavailable'
+                    ? 'text-yellow-200'
+                    : 'text-red-200'
+              }`}
+            >
+              {loadRealDataStatus === 'copied'
+                ? 'Prediction replaced with actual score.'
+                : loadRealDataStatus === 'unavailable'
+                  ? 'Actual score is not available yet.'
+                  : 'Could not load real data.'}
+            </p>
+          )}
         </header>
 
         <div className="p-5">
@@ -224,7 +309,9 @@ export function RealMatchModal({
               </div>
             ) : (
               <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-400">
-                Statistics will appear here when SportScore has data for this fixture.
+                {loading
+                  ? 'Loading team comparison from SportScore...'
+                  : 'Statistics will appear here when SportScore has data for this fixture.'}
               </p>
             )}
           </section>

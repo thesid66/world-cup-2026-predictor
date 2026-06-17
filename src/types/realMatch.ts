@@ -32,10 +32,14 @@ export type RealMatchEvent = {
   elapsed?: number | null
   extra?: number | null
   teamName?: string
+  teamLogo?: string
   playerName?: string
+  secondaryPlayerName?: string
   assistName?: string
   type?: string
   detail?: string
+  scoreDisplay?: string
+  displayText?: string
 }
 
 export type RealMatchData = {

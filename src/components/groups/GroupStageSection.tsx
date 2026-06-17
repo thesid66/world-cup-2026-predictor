@@ -43,6 +43,18 @@ function getFixtureElementId(fixtureId: string) {
   return `fixture-${fixtureId}`
 }
 
+function isElementVisibleEnough(element: HTMLElement, minimumVisibleRatio = 0.45) {
+  const rect = element.getBoundingClientRect()
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+  const visibleHeight = Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0)
+
+  if (visibleHeight <= 0) {
+    return false
+  }
+
+  return visibleHeight / Math.max(rect.height, 1) >= minimumVisibleRatio
+}
+
 function getNextMatchFixture(fixtures: Fixture[]) {
   const now = Date.now()
 
@@ -110,6 +122,12 @@ export function GroupStageSection() {
     }
 
     setIsJumpButtonVisible(true)
+  }, [nextMatchFixture?.id])
+
+  useEffect(() => {
+    if (!nextMatchFixture || !isJumpButtonVisible) {
+      return
+    }
 
     const autoHideTimer = window.setTimeout(() => {
       setIsJumpButtonVisible(false)
@@ -118,7 +136,7 @@ export function GroupStageSection() {
     return () => {
       window.clearTimeout(autoHideTimer)
     }
-  }, [nextMatchFixture?.id])
+  }, [isJumpButtonVisible, nextMatchFixture?.id])
 
   useEffect(() => {
     if (!nextMatchFixture) {
@@ -131,25 +149,50 @@ export function GroupStageSection() {
       return
     }
 
+    function updateJumpButtonFromElementPosition() {
+      setIsJumpButtonVisible(!isElementVisibleEnough(nextMatchElement))
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         const hasReachedNextMatch = entries.some(
           (entry) => entry.isIntersecting && entry.intersectionRatio >= 0.45
         )
 
-        if (hasReachedNextMatch) {
-          setIsJumpButtonVisible(false)
-        }
+        setIsJumpButtonVisible(!hasReachedNextMatch)
       },
       {
-        threshold: [0.45, 0.6]
+        threshold: [0, 0.15, 0.45, 0.6]
       }
     )
 
     observer.observe(nextMatchElement)
 
+    let scrollTimeout: number | undefined
+
+    function handleScrollOrResize() {
+      if (scrollTimeout) {
+        window.clearTimeout(scrollTimeout)
+      }
+
+      scrollTimeout = window.setTimeout(() => {
+        updateJumpButtonFromElementPosition()
+      }, 120)
+    }
+
+    window.addEventListener('scroll', handleScrollOrResize, { passive: true })
+    window.addEventListener('resize', handleScrollOrResize)
+
+    updateJumpButtonFromElementPosition()
+
     return () => {
       observer.disconnect()
+      window.removeEventListener('scroll', handleScrollOrResize)
+      window.removeEventListener('resize', handleScrollOrResize)
+
+      if (scrollTimeout) {
+        window.clearTimeout(scrollTimeout)
+      }
     }
   }, [nextMatchFixture])
 

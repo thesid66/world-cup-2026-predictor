@@ -54,6 +54,10 @@ function compactScores(scores: Record<string, PredictionScore>) {
   }, {})
 }
 
+function buildPostgrestTextInFilter(values: string[]) {
+  return `(${values.map((value) => `"${value.replaceAll('"', '\\"')}"`).join(',')})`
+}
+
 async function ensureUserProfile(userId: string, email?: string) {
   const client = requireSupabase()
 
@@ -152,17 +156,6 @@ export async function savePredictionScores(
 ) {
   const client = requireSupabase()
   const compactedScores = compactScores(scores)
-
-  const { error: deleteError } = await client
-    .from('prediction_scores')
-    .delete()
-    .eq('prediction_set_id', predictionSetId)
-    .eq('user_id', userId)
-
-  if (deleteError) {
-    throw deleteError
-  }
-
   const rows = Object.entries(compactedScores).map(([fixtureId, score]) => ({
     prediction_set_id: predictionSetId,
     user_id: userId,
@@ -173,11 +166,31 @@ export async function savePredictionScores(
   }))
 
   if (rows.length > 0) {
-    const { error: insertError } = await client.from('prediction_scores').insert(rows)
+    const { error: upsertError } = await client.from('prediction_scores').upsert(rows, {
+      onConflict: 'prediction_set_id,fixture_id'
+    })
 
-    if (insertError) {
-      throw insertError
+    if (upsertError) {
+      throw upsertError
     }
+  }
+
+  const staleDeleteQuery = client
+    .from('prediction_scores')
+    .delete()
+    .eq('prediction_set_id', predictionSetId)
+    .eq('user_id', userId)
+
+  const { error: deleteError } = rows.length
+    ? await staleDeleteQuery.not(
+        'fixture_id',
+        'in',
+        buildPostgrestTextInFilter(rows.map((row) => row.fixture_id))
+      )
+    : await staleDeleteQuery
+
+  if (deleteError) {
+    throw deleteError
   }
 
   const { error: updateError } = await client

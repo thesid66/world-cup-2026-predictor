@@ -4,8 +4,8 @@ import { createPortal } from 'react-dom'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import type { Fixture, Team } from '../../types/tournament'
 import type { RealMatchStatistic } from '../../types/realMatch'
+import { canFetchSportScoreMatchData } from '../../services/sportScore'
 import { TeamFlag } from '../ui/TeamFlag'
-import { apiFootballFixtureIdMap } from '../../data/apiFootballFixtureIds'
 
 type RealMatchModalProps = {
   fixture: Fixture
@@ -55,9 +55,7 @@ export function RealMatchModal({
 
   const homeStats = matchData?.statistics[0]?.statistics ?? []
   const awayStats = matchData?.statistics[1]?.statistics ?? []
-
-  const hasApiFixtureId =
-    Boolean(fixture.apiFootballFixtureId) || Boolean(apiFootballFixtureIdMap[fixture.id])
+  const hasSportScoreData = canFetchSportScoreMatchData(fixture)
 
   return createPortal(
     <div
@@ -72,7 +70,7 @@ export function RealMatchModal({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.3em] text-yellow-300">
-                Real match data
+                SportScore match data
               </p>
 
               <h2 className="mt-2 text-2xl font-black text-white">Match {fixture.matchNumber}</h2>
@@ -151,13 +149,10 @@ export function RealMatchModal({
               </div>
             </div>
 
-            {!hasApiFixtureId && (
+            {!hasSportScoreData && (
               <div className="mt-5 rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4">
                 <p className="text-sm font-bold leading-6 text-yellow-100">
-                  This match is not linked to an API-Football fixture ID yet. Once we add{' '}
-                  <code className="font-black">apiFootballFixtureId</code> in{' '}
-                  <code className="font-black">fixtures.ts</code>, real score and stats will load
-                  here.
+                  SportScore data is not available for this fixture yet.
                 </p>
               </div>
             )}
@@ -171,7 +166,7 @@ export function RealMatchModal({
             {loading && (
               <div className="mt-5 rounded-2xl border border-sky-300/20 bg-sky-300/10 p-4">
                 <p className="text-sm font-bold leading-6 text-sky-100">
-                  Loading real match data...
+                  Loading SportScore data...
                 </p>
               </div>
             )}
@@ -208,7 +203,7 @@ export function RealMatchModal({
               </div>
             ) : (
               <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-400">
-                Statistics will appear here when the API has data for this fixture.
+                Statistics will appear here when SportScore has data for this fixture.
               </p>
             )}
           </section>

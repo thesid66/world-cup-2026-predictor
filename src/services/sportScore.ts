@@ -29,7 +29,8 @@ type SportScoreMatch = {
   status_text: string
   live_minute: number | null
   incidents?: unknown[]
-  stats?: unknown[]
+  stats?: unknown
+  statistics?: unknown
 }
 
 type SportScoreMatchResponse = {
@@ -103,6 +104,19 @@ function readFirstValue(row: Record<string, unknown>, keys: string[]) {
   return undefined
 }
 
+function readTextValue(value: unknown) {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value)
+  }
+
+  if (isRecord(value)) {
+    const nestedValue = readFirstValue(value, ['name', 'teamName', 'team_name', 'title', 'label'])
+    return readTextValue(nestedValue)
+  }
+
+  return ''
+}
+
 function normalizeStatType(value: unknown) {
   const rawType = String(value ?? '').trim()
   const compactType = rawType.toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -111,10 +125,13 @@ function normalizeStatType(value: unknown) {
     possession: 'Ball Possession',
     ballpossession: 'Ball Possession',
     ballpossessionpercentage: 'Ball Possession',
+    possessionpercentage: 'Ball Possession',
     shotsongoal: 'Shots on Goal',
     shotsontarget: 'Shots on Goal',
+    shotson: 'Shots on Goal',
     totalshots: 'Total Shots',
     shots: 'Total Shots',
+    shot: 'Total Shots',
     corners: 'Corner Kicks',
     corner: 'Corner Kicks',
     cornerkicks: 'Corner Kicks',
@@ -123,7 +140,14 @@ function normalizeStatType(value: unknown) {
     yellowcard: 'Yellow Cards',
     yellowcards: 'Yellow Cards',
     redcard: 'Red Cards',
-    redcards: 'Red Cards'
+    redcards: 'Red Cards',
+    offsides: 'Offsides',
+    offside: 'Offsides',
+    saves: 'Goalkeeper Saves',
+    goalkeepersaves: 'Goalkeeper Saves',
+    passes: 'Passes',
+    accuratepasses: 'Accurate Passes',
+    passaccuracy: 'Pass Accuracy'
   }
 
   return aliases[compactType] ?? rawType
@@ -163,14 +187,114 @@ function normalizeTeamStatRows(rows: unknown[]): RealMatchStatistic[] {
   return statistics
 }
 
-function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamStatistics[] {
-  const rawStats = match.stats
+function normalizeStatsObjectToRows(statsObject: Record<string, unknown>) {
+  const rows = readFirstValue(statsObject, ['stats', 'statistics', 'data', 'rows', 'items'])
 
-  if (!Array.isArray(rawStats) || rawStats.length === 0) {
+  if (Array.isArray(rows)) {
+    return rows
+  }
+
+  return null
+}
+
+function normalizeObjectTeamStats(statsObject: Record<string, unknown>, match: SportScoreMatch) {
+  const homeRaw = readFirstValue(statsObject, [
+    'home',
+    'homeStats',
+    'home_stats',
+    'home_statistics',
+    'local',
+    'localTeam',
+    match.home
+  ])
+
+  const awayRaw = readFirstValue(statsObject, [
+    'away',
+    'awayStats',
+    'away_stats',
+    'away_statistics',
+    'visitor',
+    'visitorTeam',
+    match.away
+  ])
+
+  if (Array.isArray(homeRaw) && Array.isArray(awayRaw)) {
+    return [
+      {
+        teamName: match.home,
+        teamLogo: match.home_logo || undefined,
+        statistics: normalizeTeamStatRows(homeRaw)
+      },
+      {
+        teamName: match.away,
+        teamLogo: match.away_logo || undefined,
+        statistics: normalizeTeamStatRows(awayRaw)
+      }
+    ].filter((team) => team.statistics.length)
+  }
+
+  if (isRecord(homeRaw) && isRecord(awayRaw)) {
+    const keys = Array.from(new Set([...Object.keys(homeRaw), ...Object.keys(awayRaw)]))
+
+    const homeStats = keys.map((key) => ({
+      type: normalizeStatType(key),
+      value: toStatisticValue(homeRaw[key])
+    }))
+
+    const awayStats = keys.map((key) => ({
+      type: normalizeStatType(key),
+      value: toStatisticValue(awayRaw[key])
+    }))
+
+    return [
+      {
+        teamName: match.home,
+        teamLogo: match.home_logo || undefined,
+        statistics: homeStats
+      },
+      {
+        teamName: match.away,
+        teamLogo: match.away_logo || undefined,
+        statistics: awayStats
+      }
+    ].filter((team) => team.statistics.length)
+  }
+
+  return null
+}
+
+function getRawStatsRows(match: SportScoreMatch) {
+  const rawStats = match.stats ?? match.statistics
+
+  if (Array.isArray(rawStats)) {
+    return rawStats
+  }
+
+  if (isRecord(rawStats)) {
+    return normalizeStatsObjectToRows(rawStats)
+  }
+
+  return null
+}
+
+function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamStatistics[] {
+  const rawStats = match.stats ?? match.statistics
+
+  if (isRecord(rawStats)) {
+    const objectTeamStats = normalizeObjectTeamStats(rawStats, match)
+
+    if (objectTeamStats?.length) {
+      return objectTeamStats
+    }
+  }
+
+  const statsRows = getRawStatsRows(match)
+
+  if (!Array.isArray(statsRows) || statsRows.length === 0) {
     return []
   }
 
-  const teamGroupedRows = rawStats.filter((row) => {
+  const teamGroupedRows = statsRows.filter((row) => {
     if (!isRecord(row)) return false
 
     return Array.isArray(row.statistics) || Array.isArray(row.stats)
@@ -182,8 +306,8 @@ function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamSta
     teamGroupedRows.forEach((row) => {
       if (!isRecord(row)) return
 
-      const teamName = String(
-        readFirstValue(row, ['teamName', 'team_name', 'team', 'name']) ?? ''
+      const teamName = readTextValue(
+        readFirstValue(row, ['teamName', 'team_name', 'team', 'name'])
       )
 
       const statRows = readFirstValue(row, ['statistics', 'stats'])
@@ -193,7 +317,7 @@ function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamSta
 
       teamStatistics.push({
         teamName,
-        teamLogo: String(readFirstValue(row, ['teamLogo', 'team_logo', 'logo']) ?? '') || undefined,
+        teamLogo: readTextValue(readFirstValue(row, ['teamLogo', 'team_logo', 'logo'])) || undefined,
         statistics
       })
     })
@@ -204,7 +328,7 @@ function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamSta
   const homeStats: RealMatchStatistic[] = []
   const awayStats: RealMatchStatistic[] = []
 
-  rawStats.forEach((row) => {
+  statsRows.forEach((row) => {
     if (Array.isArray(row)) {
       const type = normalizeStatType(row[0])
 
@@ -301,9 +425,9 @@ function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
     events.push({
       elapsed: toOptionalNumber(readFirstValue(incident, ['minute', 'elapsed', 'time'])),
       extra: toOptionalNumber(readFirstValue(incident, ['extra', 'extra_time', 'addedTime'])),
-      teamName: typeof team === 'string' ? team : undefined,
+      teamName: typeof team === 'string' ? team : readTextValue(team) || undefined,
       playerName,
-      assistName: typeof assist === 'string' ? assist : undefined,
+      assistName: typeof assist === 'string' ? assist : readTextValue(assist) || undefined,
       type,
       detail
     })

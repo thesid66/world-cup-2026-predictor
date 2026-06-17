@@ -7,7 +7,7 @@ function addDays(date: Date, days: number) {
   return nextDate
 }
 
-function getEtKickoffAsUtcDate(fixture: Fixture): Date | null {
+export function getFixtureKickoffDate(fixture: Fixture): Date | null {
   if (!fixture.kickoffTimeSort) {
     return null
   }
@@ -24,7 +24,6 @@ function getEtKickoffAsUtcDate(fixture: Fixture): Date | null {
   const normalisedHour = isNextDayMidnight ? hourValue - 24 : hourValue
 
   const baseDate = new Date(Date.UTC(year, month - 1, day, normalisedHour, minuteValue))
-
   const etDate = isNextDayMidnight ? addDays(baseDate, 1) : baseDate
 
   /**
@@ -36,7 +35,7 @@ function getEtKickoffAsUtcDate(fixture: Fixture): Date | null {
 }
 
 export function formatNepalFixtureDateTime(fixture: Fixture) {
-  const utcDate = getEtKickoffAsUtcDate(fixture)
+  const utcDate = getFixtureKickoffDate(fixture)
 
   if (!utcDate) {
     return 'Kick-off TBC'
@@ -55,7 +54,7 @@ export function formatNepalFixtureDateTime(fixture: Fixture) {
 }
 
 export function formatNepalFixtureTime(fixture: Fixture) {
-  const utcDate = getEtKickoffAsUtcDate(fixture)
+  const utcDate = getFixtureKickoffDate(fixture)
 
   if (!utcDate) {
     return 'TBC'

@@ -1,5 +1,6 @@
-import { CalendarDays, GitBranch, Medal, Table2, Trophy } from 'lucide-react'
+import { CalendarDays, GitBranch, LogOut, Medal, Table2, Trophy } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
+import { useAuth } from '../../context/AuthContext'
 
 type AppShellProps = {
   children: ReactNode
@@ -35,6 +36,7 @@ const navItems = [
 
 export function AppShell({ children }: AppShellProps) {
   const [showBottomNav, setShowBottomNav] = useState(false)
+  const { user, signOut } = useAuth()
 
   useEffect(() => {
     function handleScroll() {
@@ -59,7 +61,7 @@ export function AppShell({ children }: AppShellProps) {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="mb-2 text-sm font-black uppercase tracking-[0.35em] text-yellow-300">
-                Local Predictor
+                Cloud Predictor
               </p>
 
               <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl">
@@ -74,7 +76,23 @@ export function AppShell({ children }: AppShellProps) {
 
             <div className="rounded-2xl border border-yellow-300/25 bg-yellow-300/10 px-5 py-4 text-center">
               <p className="text-xs font-black uppercase tracking-[0.25em] text-yellow-200">Mode</p>
-              <p className="mt-1 text-lg font-black text-white">Offline Local</p>
+              <p className="mt-1 text-lg font-black text-white">
+                {user ? 'Cloud saved' : 'Sign in required'}
+              </p>
+              <p className="mt-1 max-w-52 truncate text-xs font-bold text-slate-300">
+                {user?.email ?? 'Predictions save after login'}
+              </p>
+
+              {user && (
+                <button
+                  type="button"
+                  onClick={() => void signOut()}
+                  className="mt-3 inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-black text-slate-100 transition hover:bg-white/15"
+                >
+                  <LogOut className="size-4" />
+                  Sign out
+                </button>
+              )}
             </div>
           </div>
 

@@ -25,10 +25,30 @@ const featuredStats = [
   'Red Cards'
 ]
 
+function normalizeStatLabel(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
 function getStatValue(stats: RealMatchStatistic[], type: string) {
-  const item = stats.find((stat) => stat.type === type)
+  const normalizedType = normalizeStatLabel(type)
+  const item = stats.find((stat) => normalizeStatLabel(stat.type) === normalizedType)
 
   return item?.value ?? '-'
+}
+
+function getAvailableStatTypes(homeStats: RealMatchStatistic[], awayStats: RealMatchStatistic[]) {
+  const availableTypes = [...homeStats, ...awayStats]
+    .map((stat) => stat.type)
+    .filter(Boolean)
+
+  const uniqueTypes = Array.from(new Set(availableTypes))
+  const uniqueTypeKeys = new Set(uniqueTypes.map(normalizeStatLabel))
+
+  const matchedFeaturedStats = featuredStats.filter((type) => uniqueTypeKeys.has(normalizeStatLabel(type)))
+  const featuredKeys = new Set(matchedFeaturedStats.map(normalizeStatLabel))
+  const extraStats = uniqueTypes.filter((type) => !featuredKeys.has(normalizeStatLabel(type)))
+
+  return [...matchedFeaturedStats, ...extraStats]
 }
 
 export function RealMatchModal({
@@ -55,6 +75,7 @@ export function RealMatchModal({
 
   const homeStats = matchData?.statistics[0]?.statistics ?? []
   const awayStats = matchData?.statistics[1]?.statistics ?? []
+  const availableStatTypes = getAvailableStatTypes(homeStats, awayStats)
   const hasSportScoreData = canFetchSportScoreMatchData(fixture)
 
   return createPortal(
@@ -180,9 +201,9 @@ export function RealMatchModal({
               <h3 className="mt-1 text-xl font-black text-white">Team comparison</h3>
             </div>
 
-            {matchData?.statistics.length ? (
+            {availableStatTypes.length ? (
               <div className="grid gap-3">
-                {featuredStats.map((statType) => (
+                {availableStatTypes.map((statType) => (
                   <div
                     key={statType}
                     className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 rounded-2xl border border-white/10 bg-slate-950/45 p-3"

@@ -1,5 +1,4 @@
-import { fixtures } from '../../data/fixtures'
-import { teams } from '../../data/teams'
+import { useTournamentData } from '../../context/TournamentDataContext'
 import { usePredictionStore } from '../../store/predictionStore'
 import type { Fixture } from '../../types/tournament'
 import { MatchScoreCard } from './MatchScoreCard'
@@ -37,6 +36,7 @@ function sortFixturesByDateAndTime(a: Fixture, b: Fixture) {
 export function GroupStageSection() {
   const scores = usePredictionStore((state) => state.scores)
   const resetPredictions = usePredictionStore((state) => state.resetPredictions)
+  const { fixtures, teams } = useTournamentData()
 
   const groupStageFixtures = fixtures
     .filter((fixture) => fixture.stage === 'group')
@@ -47,7 +47,6 @@ export function GroupStageSection() {
   ).length
 
   const totalMatches = groupStageFixtures.length
-
   const progress = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0
 
   return (
@@ -127,7 +126,6 @@ export function GroupStageSection() {
         <div className="grid gap-4">
           {groupStageFixtures.map((fixture) => {
             const homeTeam = teams.find((team) => team.id === fixture.homeTeamId)
-
             const awayTeam = teams.find((team) => team.id === fixture.awayTeamId)
 
             return (

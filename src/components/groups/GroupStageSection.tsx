@@ -149,8 +149,10 @@ export function GroupStageSection() {
       return
     }
 
+    const nextMatchTarget: HTMLElement = nextMatchElement
+
     function updateJumpButtonFromElementPosition() {
-      setIsJumpButtonVisible(!isElementVisibleEnough(nextMatchElement))
+      setIsJumpButtonVisible(!isElementVisibleEnough(nextMatchTarget))
     }
 
     const observer = new IntersectionObserver(
@@ -166,7 +168,7 @@ export function GroupStageSection() {
       }
     )
 
-    observer.observe(nextMatchElement)
+    observer.observe(nextMatchTarget)
 
     let scrollTimeout: number | undefined
 

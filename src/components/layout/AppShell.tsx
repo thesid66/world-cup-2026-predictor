@@ -1,9 +1,10 @@
-import { CalendarDays, GitBranch, LogOut, Medal, Table2, Trophy } from 'lucide-react'
+import { CalendarDays, GitBranch, LogIn, LogOut, Medal, Table2, Trophy } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
 
 type AppShellProps = {
   children: ReactNode
+  onAuthClick?: () => void
 }
 
 const navItems = [
@@ -34,7 +35,7 @@ const navItems = [
   }
 ]
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, onAuthClick }: AppShellProps) {
   const [showBottomNav, setShowBottomNav] = useState(false)
   const { user, signOut } = useAuth()
 
@@ -83,7 +84,7 @@ export function AppShell({ children }: AppShellProps) {
                 {user?.email ?? 'Predictions save after login'}
               </p>
 
-              {user && (
+              {user ? (
                 <button
                   type="button"
                   onClick={() => void signOut()}
@@ -91,6 +92,15 @@ export function AppShell({ children }: AppShellProps) {
                 >
                   <LogOut className="size-4" />
                   Sign out
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onAuthClick}
+                  className="mt-3 inline-flex items-center justify-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black text-slate-950 transition hover:-translate-y-0.5 hover:bg-yellow-200"
+                >
+                  <LogIn className="size-4" />
+                  Sign in / Register
                 </button>
               )}
             </div>

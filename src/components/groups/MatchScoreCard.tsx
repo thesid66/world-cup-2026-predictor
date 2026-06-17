@@ -3,9 +3,9 @@ import type { Fixture, Team } from '../../types/tournament'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import { formatNepalFixtureDateTime } from '../../utils/fixtureTime'
+import { canFetchSportScoreMatchData } from '../../services/sportScore'
 import { RealMatchModal } from '../matches/RealMatchModal'
 import { TeamFlag } from '../ui/TeamFlag'
-import { apiFootballFixtureIdMap } from '../../data/apiFootballFixtureIds'
 
 type MatchScoreCardProps = {
   fixture: Fixture
@@ -35,13 +35,11 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
   const realMatchLoading = useRealMatchStore((state) => state.loading[fixture.id])
 
   const isCompleted = typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
-
-  const hasApiFixtureId =
-    Boolean(fixture.apiFootballFixtureId) || Boolean(apiFootballFixtureIdMap[fixture.id])
+  const hasSportScoreData = canFetchSportScoreMatchData(fixture)
 
   const actualScoreLabel = realMatch
     ? realMatch.score.display
-    : hasApiFixtureId
+    : hasSportScoreData
       ? realMatchLoading
         ? 'Loading...'
         : 'Not loaded'
@@ -158,7 +156,7 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
             {fixture.venue}, {fixture.city}
           </p>
           <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-600">
-            Click for real data
+            Click for SportScore data
           </p>
         </div>
       </article>

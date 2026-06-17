@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import type { Fixture, Team } from '../../types/tournament'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
@@ -15,6 +15,11 @@ type MatchScoreCardProps = {
 
 type LoadRealDataStatus = 'idle' | 'copied' | 'unavailable' | 'error'
 
+type UsableActualScore = {
+  home: number
+  away: number
+}
+
 function parseScoreValue(value: string): number | null {
   if (value === '') return null
 
@@ -27,7 +32,9 @@ function parseScoreValue(value: string): number | null {
   return parsed
 }
 
-function hasUsableActualScore(score?: { home: number | null; away: number | null }) {
+function hasUsableActualScore(
+  score?: { home: number | null; away: number | null }
+): score is UsableActualScore {
   return typeof score?.home === 'number' && typeof score.away === 'number'
 }
 
@@ -45,7 +52,6 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
 
   const isCompleted = typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
   const hasSportScoreData = canFetchSportScoreMatchData(fixture)
-  const hasActualScore = hasUsableActualScore(realMatch?.score)
   const isLoadRealDataDisabled = !hasSportScoreData || realMatchLoading || copyingRealData
 
   const actualScoreLabel = realMatch
@@ -56,7 +62,7 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
         : 'Not loaded'
       : 'Not linked'
 
-  async function handleLoadRealData(event: React.MouseEvent<HTMLButtonElement>) {
+  async function handleLoadRealData(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation()
 
     if (!hasSportScoreData || copyingRealData) {
@@ -70,14 +76,15 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
       await fetchMatchData(fixture, true)
 
       const latestRealMatch = useRealMatchStore.getState().matches[fixture.id]
+      const latestScore = latestRealMatch?.score
 
-      if (!hasUsableActualScore(latestRealMatch?.score)) {
+      if (!hasUsableActualScore(latestScore)) {
         setLoadRealDataStatus('unavailable')
         return
       }
 
-      updateScore(fixture.id, 'homeScore', latestRealMatch.score.home)
-      updateScore(fixture.id, 'awayScore', latestRealMatch.score.away)
+      updateScore(fixture.id, 'homeScore', latestScore.home)
+      updateScore(fixture.id, 'awayScore', latestScore.away)
       setLoadRealDataStatus('copied')
     } catch {
       setLoadRealDataStatus('error')

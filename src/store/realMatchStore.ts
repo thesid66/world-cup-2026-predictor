@@ -1,13 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { apiFootballFixtureIdMap } from '../data/apiFootballFixtureIds'
-import { fetchApiFootballMatchData } from '../services/apiFootball'
+import { canFetchSportScoreMatchData, fetchSportScoreMatchDataForFixture } from '../services/sportScore'
 import type { RealMatchData } from '../types/realMatch'
 import type { Fixture } from '../types/tournament'
-
-function getApiFootballFixtureId(fixture: Fixture) {
-  return fixture.apiFootballFixtureId ?? apiFootballFixtureIdMap[fixture.id]
-}
 
 type RealMatchState = {
   matches: Record<string, RealMatchData>
@@ -25,16 +20,13 @@ export const useRealMatchStore = create<RealMatchState>()(
       errors: {},
 
       fetchMatchData: async (fixture, force = false) => {
-        const apiFixtureId = getApiFootballFixtureId(fixture)
-
-        if (!apiFixtureId) {
+        if (!canFetchSportScoreMatchData(fixture)) {
           set((state) => ({
             errors: {
               ...state.errors,
-              [fixture.id]: 'This fixture is not linked to an API-Football fixture ID yet.'
+              [fixture.id]: 'SportScore data is not available for this fixture yet.'
             }
           }))
-
           return
         }
 
@@ -45,58 +37,33 @@ export const useRealMatchStore = create<RealMatchState>()(
         }
 
         set((state) => ({
-          loading: {
-            ...state.loading,
-            [fixture.id]: true
-          },
-          errors: {
-            ...state.errors,
-            [fixture.id]: null
-          }
+          loading: { ...state.loading, [fixture.id]: true },
+          errors: { ...state.errors, [fixture.id]: null }
         }))
 
         try {
-          const data = await fetchApiFootballMatchData(apiFixtureId)
+          const data = await fetchSportScoreMatchDataForFixture(fixture)
 
           set((state) => ({
-            matches: {
-              ...state.matches,
-              [fixture.id]: data
-            },
-            loading: {
-              ...state.loading,
-              [fixture.id]: false
-            },
-            errors: {
-              ...state.errors,
-              [fixture.id]: null
-            }
+            matches: { ...state.matches, [fixture.id]: data },
+            loading: { ...state.loading, [fixture.id]: false },
+            errors: { ...state.errors, [fixture.id]: null }
           }))
         } catch (error) {
           set((state) => ({
-            loading: {
-              ...state.loading,
-              [fixture.id]: false
-            },
+            loading: { ...state.loading, [fixture.id]: false },
             errors: {
               ...state.errors,
-              [fixture.id]:
-                error instanceof Error ? error.message : 'Unable to load real match data.'
+              [fixture.id]: error instanceof Error ? error.message : 'Unable to load real match data.'
             }
           }))
         }
       },
 
       clearRealMatchCache: () => {
-        set({
-          matches: {},
-          loading: {},
-          errors: {}
-        })
+        set({ matches: {}, loading: {}, errors: {} })
       }
     }),
-    {
-      name: 'world-cup-2026-real-match-cache'
-    }
+    { name: 'world-cup-2026-real-match-cache' }
   )
 )

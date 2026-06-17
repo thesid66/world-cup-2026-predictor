@@ -3,7 +3,7 @@ import { useTournamentData } from '../../context/TournamentDataContext'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import type { Fixture } from '../../types/tournament'
-import { formatNepalFixtureDateTime, getFixtureKickoffDate } from '../../utils/fixtureTime'
+import { getFixtureKickoffDate } from '../../utils/fixtureTime'
 import { MatchScoreCard } from './MatchScoreCard'
 
 const REAL_MATCH_PRELOAD_BATCH_SIZE = 6
@@ -322,16 +322,13 @@ export function GroupStageSection() {
         <button
           type="button"
           onClick={handleJumpToNextMatch}
-          className="fixed bottom-28 right-4 z-40 max-w-[calc(100vw-2rem)] rounded-2xl border border-yellow-200/40 bg-slate-950/95 px-4 py-3 text-left shadow-2xl shadow-black/40 ring-1 ring-white/10 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-yellow-200 hover:bg-slate-900 sm:bottom-8 sm:right-6 sm:px-5"
+          className="fixed right-3 top-3 z-50 inline-flex items-center gap-2 rounded-full border border-yellow-200/40 bg-slate-950/95 px-3 py-2 text-left shadow-xl shadow-black/30 ring-1 ring-white/10 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-yellow-200 hover:bg-slate-900 sm:right-6 sm:top-6 sm:px-4"
         >
-          <span className="block text-xs font-black uppercase tracking-[0.22em] text-yellow-200">
-            Jump to next match
+          <span className="text-xs font-black uppercase tracking-[0.16em] text-yellow-200">
+            Next match
           </span>
-          <span className="mt-1 block text-sm font-black text-white">
-            Match {nextMatchFixture.matchNumber}
-          </span>
-          <span className="mt-0.5 block text-xs font-bold text-slate-400">
-            {formatNepalFixtureDateTime(nextMatchFixture)} NPT
+          <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-black text-white">
+            #{nextMatchFixture.matchNumber}
           </span>
         </button>
       )}

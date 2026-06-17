@@ -186,19 +186,44 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
               </p>
               <p className="mt-0.5 text-sm font-black text-white">{actualScoreLabel}</p>
             </div>
+          </div>
 
+          <div className="flex min-w-0 items-center justify-end gap-3 text-right">
+            <div className="min-w-0">
+              <p className="truncate font-black text-white">{awayTeam?.name}</p>
+              <p className="text-xs font-bold text-slate-500">{awayTeam?.shortName}</p>
+            </div>
+
+            <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="lg" />
+          </div>
+        </div>
+
+        <div className="relative mt-8 grid gap-3 border-t border-white/10 pt-8 sm:mt-6 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:pt-5">
+          <span className="absolute left-3 right-3 top-0 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-center text-[9px] font-black uppercase tracking-[0.12em] text-yellow-200 shadow-lg sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:whitespace-nowrap sm:text-[10px] sm:tracking-[0.18em]">
+            {formatNepalFixtureDateTime(fixture)} NPT
+          </span>
+
+          <p className="text-xs font-bold text-slate-500">
+            {fixture.venue}, {fixture.city}
+          </p>
+
+          <div className="flex flex-col items-stretch gap-2" onClick={(event) => event.stopPropagation()}>
             <button
               type="button"
               disabled={isLoadRealDataDisabled}
               onClick={handleLoadRealData}
-              className="mt-2 w-full rounded-xl border border-emerald-300/25 bg-emerald-300/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-100 transition hover:border-emerald-200 hover:bg-emerald-300/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
+              className="rounded-full border border-emerald-300/30 bg-emerald-300/15 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-100 shadow-lg shadow-emerald-950/20 transition hover:border-emerald-200 hover:bg-emerald-300/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
             >
-              {copyingRealData || realMatchLoading ? 'Loading real data...' : 'Load real data'}
+              {copyingRealData || realMatchLoading
+                ? 'Loading real data...'
+                : hasSportScoreData
+                  ? 'Load real data'
+                  : 'Real data unavailable'}
             </button>
 
             {loadRealDataStatus !== 'idle' && (
               <p
-                className={`mt-2 text-center text-[10px] font-bold ${
+                className={`text-center text-[10px] font-bold ${
                   loadRealDataStatus === 'copied'
                     ? 'text-emerald-200'
                     : loadRealDataStatus === 'unavailable'
@@ -215,24 +240,7 @@ export function MatchScoreCard({ fixture, homeTeam, awayTeam }: MatchScoreCardPr
             )}
           </div>
 
-          <div className="flex min-w-0 items-center justify-end gap-3 text-right">
-            <div className="min-w-0">
-              <p className="truncate font-black text-white">{awayTeam?.name}</p>
-              <p className="text-xs font-bold text-slate-500">{awayTeam?.shortName}</p>
-            </div>
-
-            <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="lg" />
-          </div>
-        </div>
-
-        <div className="relative mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-8 sm:mt-6 sm:pt-5">
-          <span className="absolute left-3 right-3 top-0 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-center text-[9px] font-black uppercase tracking-[0.12em] text-yellow-200 shadow-lg sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:whitespace-nowrap sm:text-[10px] sm:tracking-[0.18em]">
-            {formatNepalFixtureDateTime(fixture)} NPT
-          </span>
-          <p className="text-xs font-bold text-slate-500">
-            {fixture.venue}, {fixture.city}
-          </p>
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-600">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-600 sm:text-right">
             Click for SportScore data
           </p>
         </div>

@@ -112,7 +112,6 @@ function normalizeStatType(value: unknown) {
     ballpossession: 'Ball Possession',
     ballpossessionpercentage: 'Ball Possession',
     shotsongoal: 'Shots on Goal',
-    shotsongoal: 'Shots on Goal',
     shotsontarget: 'Shots on Goal',
     totalshots: 'Total Shots',
     shots: 'Total Shots',
@@ -197,6 +196,9 @@ function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamSta
   rawStats.forEach((row) => {
     if (Array.isArray(row)) {
       const type = normalizeStatType(row[0])
+
+      if (!type) return
+
       homeStats.push({ type, value: toStatisticValue(row[1]) })
       awayStats.push({ type, value: toStatisticValue(row[2]) })
       return

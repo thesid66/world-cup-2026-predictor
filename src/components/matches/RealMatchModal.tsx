@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import type { Fixture, Team } from '../../types/tournament'
-import type { RealMatchStatistic } from '../../types/realMatch'
+import type { RealMatchEvent, RealMatchStatistic } from '../../types/realMatch'
 import { canFetchSportScoreMatchData } from '../../services/sportScore'
 import { TeamFlag } from '../ui/TeamFlag'
 
@@ -63,6 +63,32 @@ function hasUsableActualScore(
   score?: { home: number | null; away: number | null }
 ): score is UsableActualScore {
   return typeof score?.home === 'number' && typeof score.away === 'number'
+}
+
+function getTimelineTitle(event: RealMatchEvent) {
+  const minute = typeof event.elapsed === 'number' ? event.elapsed : '-'
+  const extra = event.extra ? `+${event.extra}` : ''
+  const type = event.type || 'Event'
+
+  return `${minute}${extra}' · ${type}`
+}
+
+function getTimelinePrimaryText(event: RealMatchEvent) {
+  return event.displayText || event.playerName || event.secondaryPlayerName || event.detail || ''
+}
+
+function getTimelineMetaParts(event: RealMatchEvent) {
+  const parts: string[] = []
+
+  if (event.assistName) {
+    parts.push(`Assist: ${event.assistName}`)
+  }
+
+  if (event.scoreDisplay) {
+    parts.push(`Score: ${event.scoreDisplay}`)
+  }
+
+  return parts
 }
 
 export function RealMatchModal({
@@ -326,30 +352,41 @@ export function RealMatchModal({
 
             {matchData?.events.length ? (
               <div className="grid gap-3">
-                {matchData.events.map((event, index) => (
-                  <div
-                    key={`${event.elapsed}-${event.playerName}-${index}`}
-                    className="rounded-2xl border border-white/10 bg-slate-950/45 p-4"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="font-black text-white">
-                        {event.elapsed}
-                        {event.extra ? `+${event.extra}` : ''}' · {event.type}
-                      </p>
+                {matchData.events.map((event, index) => {
+                  const primaryText = getTimelinePrimaryText(event)
+                  const metaParts = getTimelineMetaParts(event)
 
-                      <p className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-300">
-                        {event.teamName}
-                      </p>
+                  return (
+                    <div
+                      key={`${event.elapsed}-${primaryText}-${index}`}
+                      className="rounded-2xl border border-white/10 bg-slate-950/45 p-4"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="font-black text-white">{getTimelineTitle(event)}</p>
+
+                        {event.teamName && (
+                          <p className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-300">
+                            {event.teamName}
+                          </p>
+                        )}
+                      </div>
+
+                      {primaryText && (
+                        <p className="mt-2 text-sm font-bold text-slate-300">{primaryText}</p>
+                      )}
+
+                      {metaParts.length > 0 && (
+                        <p className="mt-1 text-xs font-bold text-slate-400">
+                          {metaParts.join(' · ')}
+                        </p>
+                      )}
+
+                      {event.detail && event.detail !== primaryText && (
+                        <p className="mt-1 text-xs font-bold text-slate-500">{event.detail}</p>
+                      )}
                     </div>
-
-                    <p className="mt-2 text-sm font-bold text-slate-400">
-                      {event.playerName}
-                      {event.assistName ? ` · Assist: ${event.assistName}` : ''}
-                    </p>
-
-                    <p className="mt-1 text-xs font-bold text-slate-500">{event.detail}</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-400">

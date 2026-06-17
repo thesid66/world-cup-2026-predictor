@@ -130,30 +130,37 @@ function normalizeStatType(value: unknown) {
 }
 
 function normalizeTeamStatRows(rows: unknown[]): RealMatchStatistic[] {
-  return rows
-    .map((row) => {
-      if (Array.isArray(row)) {
-        return {
-          type: normalizeStatType(row[0]),
-          value: toStatisticValue(row[1])
-        }
-      }
+  const statistics: RealMatchStatistic[] = []
 
-      if (!isRecord(row)) return null
+  rows.forEach((row) => {
+    if (Array.isArray(row)) {
+      const type = normalizeStatType(row[0])
 
-      const type = normalizeStatType(
-        readFirstValue(row, ['type', 'name', 'key', 'label', 'title', 'stat', 'stat_type'])
-      )
+      if (!type) return
 
-      if (!type) return null
+      statistics.push({
+        type,
+        value: toStatisticValue(row[1])
+      })
+      return
+    }
 
-      const value = toStatisticValue(
-        readFirstValue(row, ['value', 'display', 'total', 'count', 'stat_value', 'statValue'])
-      )
+    if (!isRecord(row)) return
 
-      return { type, value }
-    })
-    .filter((stat): stat is RealMatchStatistic => Boolean(stat?.type))
+    const type = normalizeStatType(
+      readFirstValue(row, ['type', 'name', 'key', 'label', 'title', 'stat', 'stat_type'])
+    )
+
+    if (!type) return
+
+    const value = toStatisticValue(
+      readFirstValue(row, ['value', 'display', 'total', 'count', 'stat_value', 'statValue'])
+    )
+
+    statistics.push({ type, value })
+  })
+
+  return statistics
 }
 
 function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamStatistics[] {
@@ -170,24 +177,28 @@ function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamSta
   })
 
   if (teamGroupedRows.length) {
-    return teamGroupedRows
-      .map((row) => {
-        if (!isRecord(row)) return null
+    const teamStatistics: RealMatchTeamStatistics[] = []
 
-        const teamName = String(
-          readFirstValue(row, ['teamName', 'team_name', 'team', 'name']) ?? ''
-        )
+    teamGroupedRows.forEach((row) => {
+      if (!isRecord(row)) return
 
-        const statRows = readFirstValue(row, ['statistics', 'stats'])
-        const statistics = Array.isArray(statRows) ? normalizeTeamStatRows(statRows) : []
+      const teamName = String(
+        readFirstValue(row, ['teamName', 'team_name', 'team', 'name']) ?? ''
+      )
 
-        return {
-          teamName,
-          teamLogo: String(readFirstValue(row, ['teamLogo', 'team_logo', 'logo']) ?? '') || undefined,
-          statistics
-        }
+      const statRows = readFirstValue(row, ['statistics', 'stats'])
+      const statistics = Array.isArray(statRows) ? normalizeTeamStatRows(statRows) : []
+
+      if (!statistics.length) return
+
+      teamStatistics.push({
+        teamName,
+        teamLogo: String(readFirstValue(row, ['teamLogo', 'team_logo', 'logo']) ?? '') || undefined,
+        statistics
       })
-      .filter((teamStats): teamStats is RealMatchTeamStatistics => Boolean(teamStats?.statistics.length))
+    })
+
+    return teamStatistics
   }
 
   const homeStats: RealMatchStatistic[] = []
@@ -262,30 +273,43 @@ function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamSta
   ]
 }
 
+function toOptionalNumber(value: unknown): number | null | undefined {
+  const numberValue = Number(value)
+
+  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : undefined
+}
+
 function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
   if (!Array.isArray(match.incidents)) {
     return []
   }
 
-  return match.incidents
-    .map((incident) => {
-      if (!isRecord(incident)) return null
+  const events: RealMatchEvent[] = []
 
-      const player = readFirstValue(incident, ['player', 'playerName', 'player_name'])
-      const assist = readFirstValue(incident, ['assist', 'assistName', 'assist_name'])
-      const team = readFirstValue(incident, ['team', 'teamName', 'team_name'])
+  match.incidents.forEach((incident) => {
+    if (!isRecord(incident)) return
 
-      return {
-        elapsed: Number(readFirstValue(incident, ['minute', 'elapsed', 'time'])) || null,
-        extra: Number(readFirstValue(incident, ['extra', 'extra_time', 'addedTime'])) || null,
-        teamName: typeof team === 'string' ? team : undefined,
-        playerName: typeof player === 'string' ? player : undefined,
-        assistName: typeof assist === 'string' ? assist : undefined,
-        type: String(readFirstValue(incident, ['type', 'incident_type', 'kind']) ?? ''),
-        detail: String(readFirstValue(incident, ['detail', 'text', 'description']) ?? '')
-      }
+    const player = readFirstValue(incident, ['player', 'playerName', 'player_name'])
+    const assist = readFirstValue(incident, ['assist', 'assistName', 'assist_name'])
+    const team = readFirstValue(incident, ['team', 'teamName', 'team_name'])
+    const type = String(readFirstValue(incident, ['type', 'incident_type', 'kind']) ?? '')
+    const detail = String(readFirstValue(incident, ['detail', 'text', 'description']) ?? '')
+    const playerName = typeof player === 'string' ? player : undefined
+
+    if (!type && !playerName) return
+
+    events.push({
+      elapsed: toOptionalNumber(readFirstValue(incident, ['minute', 'elapsed', 'time'])),
+      extra: toOptionalNumber(readFirstValue(incident, ['extra', 'extra_time', 'addedTime'])),
+      teamName: typeof team === 'string' ? team : undefined,
+      playerName,
+      assistName: typeof assist === 'string' ? assist : undefined,
+      type,
+      detail
     })
-    .filter((event): event is RealMatchEvent => Boolean(event?.type || event?.playerName))
+  })
+
+  return events
 }
 
 export function getSportScoreFixtureSlugCandidates(fixture: Fixture) {

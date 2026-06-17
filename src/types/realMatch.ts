@@ -11,7 +11,7 @@ export type RealMatchScore = {
 }
 
 export type RealMatchTeam = {
-  id?: number
+  id?: number | string
   name: string
   logo?: string
 }
@@ -22,7 +22,7 @@ export type RealMatchStatistic = {
 }
 
 export type RealMatchTeamStatistics = {
-  teamId?: number
+  teamId?: number | string
   teamName: string
   teamLogo?: string
   statistics: RealMatchStatistic[]
@@ -39,8 +39,8 @@ export type RealMatchEvent = {
 }
 
 export type RealMatchData = {
-  provider: 'api-football'
-  apiFixtureId: number
+  provider: 'api-football' | 'sportscore'
+  apiFixtureId: number | string
   fetchedAt: string
   status: RealMatchStatus
   homeTeam: RealMatchTeam

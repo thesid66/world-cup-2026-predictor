@@ -14,8 +14,8 @@ const navItems = [
     icon: Trophy
   },
   {
-    label: 'Predictions',
-    href: '#predictions',
+    label: 'Fixtures',
+    href: '#fixtures',
     icon: CalendarDays
   },
   {
@@ -62,16 +62,16 @@ export function AppShell({ children, onAuthClick }: AppShellProps) {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="mb-2 text-sm font-black uppercase tracking-[0.35em] text-yellow-300">
-                Cloud Predictor
+                Tournament Hub
               </p>
 
               <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl">
-                World Cup 2026 Predictor
+                World Cup 2026 Hub
               </h1>
 
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                Predict every score manually, build the group tables, rank the best third-placed
-                teams, and complete your road to the final.
+                Track every fixture, load real scores, build the group tables, rank the best
+                third-placed teams, and complete your road to the final.
               </p>
             </div>
 
@@ -81,7 +81,7 @@ export function AppShell({ children, onAuthClick }: AppShellProps) {
                 {user ? 'Cloud saved' : 'Sign in required'}
               </p>
               <p className="mt-1 max-w-52 truncate text-xs font-bold text-slate-300">
-                {user?.email ?? 'Predictions save after login'}
+                {user?.email ?? 'Progress saves after login'}
               </p>
 
               {user ? (

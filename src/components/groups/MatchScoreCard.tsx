@@ -141,21 +141,23 @@ export function MatchScoreCard({
           </div>
         </div>
 
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
           <div className="flex min-w-0 items-center gap-3">
             <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="lg" />
 
             <div className="min-w-0">
-              <p className="truncate font-black text-white">{homeTeam?.name}</p>
+              <p className="break-words text-sm font-black leading-tight text-white sm:truncate sm:text-base">
+                {homeTeam?.name}
+              </p>
               <p className="text-xs font-bold text-slate-500">{homeTeam?.shortName}</p>
             </div>
           </div>
 
           <div
-            className="rounded-2xl border border-white/10 bg-black/20 p-2"
+            className="col-span-2 row-start-2 mx-auto w-full max-w-[16rem] rounded-2xl border border-white/10 bg-black/20 p-2 sm:col-span-1 sm:row-start-auto sm:w-auto sm:max-w-none"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center gap-2">
               <input
                 type="number"
                 min={0}
@@ -189,9 +191,11 @@ export function MatchScoreCard({
             </div>
           </div>
 
-          <div className="flex min-w-0 items-center justify-end gap-3 text-right">
+          <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end gap-3 text-right sm:col-start-auto sm:row-start-auto">
             <div className="min-w-0">
-              <p className="truncate font-black text-white">{awayTeam?.name}</p>
+              <p className="break-words text-sm font-black leading-tight text-white sm:truncate sm:text-base">
+                {awayTeam?.name}
+              </p>
               <p className="text-xs font-bold text-slate-500">{awayTeam?.shortName}</p>
             </div>
 

@@ -42,6 +42,26 @@ export type RealMatchEvent = {
   displayText?: string
 }
 
+export type RealMatchLineupPlayer = {
+  name: string
+  number?: number | string | null
+  position?: string
+  captain?: boolean
+  rating?: string | number | null
+}
+
+export type RealMatchLineups = {
+  confirmed?: boolean
+  homeFormation?: string | null
+  awayFormation?: string | null
+  homeCoach?: string | null
+  awayCoach?: string | null
+  homeXi: RealMatchLineupPlayer[]
+  awayXi: RealMatchLineupPlayer[]
+  homeSubs: RealMatchLineupPlayer[]
+  awaySubs: RealMatchLineupPlayer[]
+}
+
 export type RealMatchData = {
   provider: 'api-football' | 'sportscore'
   apiFixtureId: number | string
@@ -52,4 +72,5 @@ export type RealMatchData = {
   score: RealMatchScore
   statistics: RealMatchTeamStatistics[]
   events: RealMatchEvent[]
+  lineups?: RealMatchLineups
 }

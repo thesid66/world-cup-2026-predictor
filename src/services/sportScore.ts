@@ -20,6 +20,20 @@ const sportScoreMatchSlugAliases: Record<string, string> = {
   'ir-iran': 'iran'
 }
 
+const sportScoreComparableTeamAliases: Record<string, string> = {
+  'korea-republic': 'south-korea',
+  'republic-of-korea': 'south-korea',
+  'united-states': 'usa',
+  'united-states-of-america': 'usa',
+  'bosnia-and-herzegovina': 'bosnia-herzegovina',
+  'congo-dr': 'democratic-republic-of-the-congo',
+  'dr-congo': 'democratic-republic-of-the-congo',
+  'cabo-verde': 'cape-verde',
+  'ir-iran': 'iran',
+  'czech-republic': 'czechia',
+  'cote-d-ivoire': 'ivory-coast'
+}
+
 type SportScoreMatch = {
   home: string
   away: string
@@ -53,6 +67,31 @@ type SportScoreProxyResponse = SportScoreMatchResponse | SportScoreUnavailableRe
 
 function getSportScoreTeamSlug(teamId: string) {
   return sportScoreMatchSlugAliases[teamId] ?? teamId
+}
+
+function getComparableTeamSlug(value: string) {
+  const slug = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return sportScoreComparableTeamAliases[slug] ?? slug
+}
+
+function shouldReverseTeamOrder(match: SportScoreMatch, fixture: Fixture) {
+  const fixtureHome = getComparableTeamSlug(getSportScoreTeamSlug(fixture.homeTeamId))
+  const fixtureAway = getComparableTeamSlug(getSportScoreTeamSlug(fixture.awayTeamId))
+  const matchHome = getComparableTeamSlug(match.home)
+  const matchAway = getComparableTeamSlug(match.away)
+
+  if (matchHome === fixtureAway && matchAway === fixtureHome) {
+    return true
+  }
+
+  return false
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -113,6 +152,12 @@ function readFirstTextValue(row: Record<string, unknown>, keys: string[]) {
 
 function toOptionalBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined
+}
+
+function toOptionalNumber(value: unknown): number | null | undefined {
+  const numberValue = Number(value)
+
+  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : undefined
 }
 
 function toStatisticValue(value: unknown): string | number | null {
@@ -418,12 +463,6 @@ function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamSta
   ]
 }
 
-function toOptionalNumber(value: unknown): number | null | undefined {
-  const numberValue = Number(value)
-
-  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : undefined
-}
-
 function normalizeLineupPlayer(value: unknown): RealMatchLineupPlayer | null {
   if (!isRecord(value)) return null
 
@@ -505,19 +544,35 @@ function readIncidentScore(incident: Record<string, unknown>, reverseTeamOrder: 
   return undefined
 }
 
-function normalizeIncidentTeamName(teamValue: unknown, match: SportScoreMatch) {
+function normalizeIncidentTeamName(
+  teamValue: unknown,
+  match: SportScoreMatch,
+  reverseTeamOrder: boolean
+) {
   const teamText = readTextValue(teamValue)
   const normalizedTeamText = teamText.toLowerCase()
 
   if (['home', 'local', 'home team', 'local team'].includes(normalizedTeamText)) {
-    return match.home
+    return reverseTeamOrder ? match.away : match.home
   }
 
   if (['away', 'visitor', 'away team', 'visitor team'].includes(normalizedTeamText)) {
+    return reverseTeamOrder ? match.home : match.away
+  }
+
+  if (!teamText || !reverseTeamOrder) {
+    return teamText || undefined
+  }
+
+  if (getComparableTeamSlug(teamText) === getComparableTeamSlug(match.home)) {
     return match.away
   }
 
-  return teamText || undefined
+  if (getComparableTeamSlug(teamText) === getComparableTeamSlug(match.away)) {
+    return match.home
+  }
+
+  return teamText
 }
 
 function buildEventDisplayText(type: string, playerName?: string, secondaryPlayerName?: string) {
@@ -611,7 +666,7 @@ function normalizeSportScoreEvents(match: SportScoreMatch, reverseTeamOrder: boo
       'teamType'
     ])
 
-    const teamName = normalizeIncidentTeamName(teamValue, match)
+    const teamName = normalizeIncidentTeamName(teamValue, match, reverseTeamOrder)
     const detail = readFirstTextValue(incident, ['detail', 'text', 'description', 'comment', 'reason']) ?? ''
     const scoreDisplay = readIncidentScore(incident, reverseTeamOrder)
 
@@ -651,7 +706,7 @@ export function canFetchSportScoreMatchData(fixture: Fixture) {
 
 export async function fetchSportScoreMatchData(
   slug: string,
-  reverseTeamOrder = false
+  fixture?: Fixture
 ): Promise<RealMatchData> {
   if (!SUPABASE_URL) {
     throw new Error('SportScore proxy is not configured.')
@@ -671,6 +726,7 @@ export async function fetchSportScoreMatchData(
   }
 
   const match = data.match
+  const reverseTeamOrder = fixture ? shouldReverseTeamOrder(match, fixture) : false
   const homeScore = reverseTeamOrder ? match.away_score : match.home_score
   const awayScore = reverseTeamOrder ? match.home_score : match.away_score
   const rawLineups = normalizeSportScoreLineups(match)
@@ -707,8 +763,8 @@ export async function fetchSportScoreMatchDataForFixture(fixture: Fixture): Prom
   const [directSlug, reverseSlug] = getSportScoreFixtureSlugCandidates(fixture)
 
   try {
-    return await fetchSportScoreMatchData(directSlug, false)
+    return await fetchSportScoreMatchData(directSlug, fixture)
   } catch {
-    return fetchSportScoreMatchData(reverseSlug, true)
+    return fetchSportScoreMatchData(reverseSlug, fixture)
   }
 }

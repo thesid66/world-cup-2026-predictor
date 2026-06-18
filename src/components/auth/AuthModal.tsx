@@ -9,13 +9,25 @@ type AuthModalProps = {
   onClose: () => void
 }
 
+function normaliseEmail(email: string) {
+  return email.trim().toLowerCase()
+}
+
 export function AuthModal({ open, onClose }: AuthModalProps) {
-  const { user, loading, isConfigured, signInWithPassword, signUpWithPassword } = useAuth()
+  const {
+    user,
+    loading,
+    isConfigured,
+    signInWithPassword,
+    signUpWithPassword,
+    resendEmailConfirmation
+  } = useAuth()
   const [mode, setMode] = useState<AuthMode>('sign-in')
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [resending, setResending] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -29,24 +41,61 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
     setMessage(null)
     setErrorMessage(null)
 
+    const authEmail = normaliseEmail(email)
+
     try {
       if (mode === 'sign-in') {
-        await signInWithPassword({ email, password })
-        setMessage('Signed in. Loading your predictions...')
+        await signInWithPassword({ email: authEmail, password })
+        setMessage('Signed in. Loading your saved scores...')
       } else {
-        const result = await signUpWithPassword({ email, password, displayName })
+        const result = await signUpWithPassword({ email: authEmail, password, displayName })
 
         if (result.needsEmailConfirmation) {
-          setMessage('Account created. Check your email to confirm your account, then sign in.')
+          setMessage(
+            'Account created. Check your email and open the newest confirmation link. It will return you to this app automatically.'
+          )
           setMode('sign-in')
         } else {
-          setMessage('Account created. Loading your predictions...')
+          setMessage('Account created. Loading your saved scores...')
         }
       }
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Authentication failed.')
+      const authErrorMessage = error instanceof Error ? error.message : 'Authentication failed.'
+
+      if (mode === 'sign-in' && authEmail) {
+        setErrorMessage(
+          `${authErrorMessage}. If this is a new account, resend the confirmation email below and open the newest link.`
+        )
+      } else {
+        setErrorMessage(authErrorMessage)
+      }
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleResendConfirmation() {
+    const authEmail = normaliseEmail(email)
+
+    if (!authEmail) {
+      setErrorMessage('Enter your email address first.')
+      return
+    }
+
+    setResending(true)
+    setMessage(null)
+    setErrorMessage(null)
+
+    try {
+      await resendEmailConfirmation({ email: authEmail })
+      setMessage(
+        'Confirmation email sent. Open the newest email and ignore any older localhost confirmation links.'
+      )
+      setMode('sign-in')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Could not resend confirmation email.')
+    } finally {
+      setResending(false)
     }
   }
 
@@ -64,19 +113,19 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
 
         <div className="bg-linear-to-br from-yellow-300/15 via-sky-400/10 to-emerald-300/15 p-6 pr-16">
           <p className="text-xs font-black uppercase tracking-[0.3em] text-yellow-200">
-            Cloud predictions
+            Cloud sync
           </p>
 
           <h2 className="mt-3 text-3xl font-black text-white">
             {isConfigured
               ? mode === 'sign-in'
                 ? 'Sign in to continue'
-                : 'Create your predictor account'
+                : 'Create your World Cup 2026 Hub account'
               : 'Supabase login is not configured'}
           </h2>
 
           <p className="mt-3 text-sm leading-6 text-slate-300">
-            Your existing browser predictions will be copied to your account one time after your first
+            Your existing browser scores will be copied to your account one time after your first
             login. Future changes will save automatically.
           </p>
         </div>
@@ -178,9 +227,20 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key`}
               </p>
             )}
 
+            {mode === 'sign-in' && (
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={submitting || resending}
+                className="w-full rounded-2xl border border-emerald-300/20 bg-emerald-300/10 px-5 py-3 text-sm font-black text-emerald-100 transition hover:bg-emerald-300/15 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {resending ? 'Sending confirmation...' : 'Resend confirmation email'}
+              </button>
+            )}
+
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || resending}
               className="w-full rounded-2xl bg-yellow-300 px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-slate-950 transition hover:-translate-y-0.5 hover:bg-yellow-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting
@@ -197,7 +257,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key`}
                 setMessage(null)
                 setErrorMessage(null)
               }}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black text-slate-200 transition hover:bg-white/10"
+              disabled={submitting || resending}
+              className="w-full rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-black text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {mode === 'sign-in'
                 ? 'Need an account? Register'
@@ -207,7 +268,8 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key`}
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-2xl border border-white/10 px-5 py-3 text-sm font-black text-slate-400 transition hover:bg-white/5 hover:text-slate-200"
+              disabled={submitting || resending}
+              className="w-full rounded-2xl border border-white/10 px-5 py-3 text-sm font-black text-slate-400 transition hover:bg-white/5 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Continue as guest for now
             </button>

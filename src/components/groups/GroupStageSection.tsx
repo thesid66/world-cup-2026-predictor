@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTournamentData } from '../../context/TournamentDataContext'
 import { canFetchSportScoreMatchData } from '../../services/sportScore'
 import { usePredictionStore } from '../../store/predictionStore'
@@ -92,7 +92,6 @@ export function GroupStageSection() {
   const [isJumpButtonVisible, setIsJumpButtonVisible] = useState(true)
   const [isLoadingActualScores, setIsLoadingActualScores] = useState(false)
   const [actualScoreLoadSummary, setActualScoreLoadSummary] = useState<string | null>(null)
-  const hasStartedAutoScoreLoad = useRef(false)
 
   const scores = usePredictionStore((state) => state.scores)
   const replaceScores = usePredictionStore((state) => state.replaceScores)
@@ -110,24 +109,17 @@ export function GroupStageSection() {
     [groupStageFixtures]
   )
 
-  const hasEmptyScoreFields = groupStageFixtures.some(
-    (fixture) => !isFixtureCompleted(fixture, scores)
-  )
   const hasSportScoreFixtures = groupStageFixtures.some(canFetchSportScoreMatchData)
 
-  async function loadActualScores({ onlyEmpty }: { onlyEmpty: boolean }) {
+  async function loadActualScores() {
     if (isLoadingActualScores || !hasSportScoreFixtures) {
       return
     }
 
     setIsLoadingActualScores(true)
-    setActualScoreLoadSummary(
-      onlyEmpty ? 'Checking empty score cards...' : 'Loading actual scores...'
-    )
+    setActualScoreLoadSummary('Loading actual scores...')
 
-    const actualScores: Record<string, PredictionScore> = {}
     let loadedCount = 0
-    let skippedCount = 0
     let unavailableCount = 0
 
     for (const fixture of groupStageFixtures) {
@@ -136,49 +128,48 @@ export function GroupStageSection() {
         continue
       }
 
-      const currentScore = usePredictionStore.getState().scores[fixture.id]
+      setActualScoreLoadSummary(
+        `Loading actual scores... ${loadedCount} loaded · ${unavailableCount} unavailable · checking match ${fixture.matchNumber}`
+      )
 
-      if (onlyEmpty && isFixtureCompleted(fixture, usePredictionStore.getState().scores)) {
-        skippedCount += 1
+      try {
+        await fetchMatchData(fixture, true)
+      } catch {
+        unavailableCount += 1
+        setActualScoreLoadSummary(
+          `Loading actual scores... ${loadedCount} loaded · ${unavailableCount} unavailable`
+        )
         continue
       }
-
-      await fetchMatchData(fixture, true)
 
       const matchData = useRealMatchStore.getState().matches[fixture.id]
 
       if (!hasUsableActualScore(matchData)) {
         unavailableCount += 1
+        setActualScoreLoadSummary(
+          `Loading actual scores... ${loadedCount} loaded · ${unavailableCount} unavailable`
+        )
         continue
       }
 
-      const latestScore = usePredictionStore.getState().scores[fixture.id]
+      const currentScores = usePredictionStore.getState().scores
+      const currentScore = currentScores[fixture.id]
 
-      if (onlyEmpty && isFixtureCompleted(fixture, usePredictionStore.getState().scores)) {
-        skippedCount += 1
-        continue
-      }
-
-      actualScores[fixture.id] = {
-        ...currentScore,
-        ...latestScore,
-        ...buildActualScore(matchData)
-      }
-      loadedCount += 1
-    }
-
-    if (Object.keys(actualScores).length > 0) {
       replaceScores({
-        ...usePredictionStore.getState().scores,
-        ...actualScores
+        ...currentScores,
+        [fixture.id]: {
+          ...currentScore,
+          ...buildActualScore(matchData)
+        }
       })
+
+      loadedCount += 1
+      setActualScoreLoadSummary(
+        `Loading actual scores... ${loadedCount} loaded · ${unavailableCount} unavailable`
+      )
     }
 
     const summaryParts = [`${loadedCount} loaded`]
-
-    if (skippedCount > 0) {
-      summaryParts.push(`${skippedCount} skipped`)
-    }
 
     if (unavailableCount > 0) {
       summaryParts.push(`${unavailableCount} unavailable`)
@@ -187,19 +178,6 @@ export function GroupStageSection() {
     setActualScoreLoadSummary(`Actual scores: ${summaryParts.join(' · ')}.`)
     setIsLoadingActualScores(false)
   }
-
-  useEffect(() => {
-    if (hasStartedAutoScoreLoad.current || isLoadingActualScores) {
-      return
-    }
-
-    if (!groupStageFixtures.length || !hasEmptyScoreFields) {
-      return
-    }
-
-    hasStartedAutoScoreLoad.current = true
-    void loadActualScores({ onlyEmpty: true })
-  }, [groupStageFixtures, hasEmptyScoreFields, isLoadingActualScores])
 
   useEffect(() => {
     if (!nextMatchFixture) {
@@ -338,7 +316,7 @@ export function GroupStageSection() {
               <button
                 type="button"
                 disabled={isLoadingActualScores || !hasSportScoreFixtures}
-                onClick={() => void loadActualScores({ onlyEmpty: false })}
+                onClick={() => void loadActualScores()}
                 className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-5 py-3 text-sm font-black text-emerald-200 transition hover:-translate-y-0.5 hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
               >
                 {isLoadingActualScores ? 'Loading actual scores...' : 'Load actual Score'}

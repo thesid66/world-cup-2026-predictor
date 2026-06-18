@@ -34,9 +34,19 @@ type SportScoreMatch = {
 }
 
 type SportScoreMatchResponse = {
+  available?: true
   match: SportScoreMatch
   updated: string
 }
+
+type SportScoreUnavailableResponse = {
+  available: false
+  error?: string
+  upstreamStatus?: number
+  slug?: string
+}
+
+type SportScoreProxyResponse = SportScoreMatchResponse | SportScoreUnavailableResponse
 
 function getSportScoreTeamSlug(teamId: string) {
   return sportScoreMatchSlugAliases[teamId] ?? teamId
@@ -553,6 +563,10 @@ function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
   return events
 }
 
+function isAvailableMatchResponse(data: SportScoreProxyResponse): data is SportScoreMatchResponse {
+  return 'match' in data && isRecord(data.match)
+}
+
 export function getSportScoreFixtureSlugCandidates(fixture: Fixture) {
   const homeSlug = getSportScoreTeamSlug(fixture.homeTeamId)
   const awaySlug = getSportScoreTeamSlug(fixture.awayTeamId)
@@ -576,7 +590,12 @@ export async function fetchSportScoreMatchData(slug: string): Promise<RealMatchD
     throw new Error(`SportScore match request failed: ${response.status} ${response.statusText}`)
   }
 
-  const data = (await response.json()) as SportScoreMatchResponse
+  const data = (await response.json()) as SportScoreProxyResponse
+
+  if (!isAvailableMatchResponse(data)) {
+    throw new Error('SportScore match data is not available for this fixture yet.')
+  }
+
   const match = data.match
 
   return {

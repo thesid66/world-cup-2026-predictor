@@ -23,6 +23,14 @@ type UsableActualScore = {
   away: number
 }
 
+type TimelineEventStyle = {
+  icon: string
+  cardClass: string
+  iconClass: string
+  labelClass: string
+  teamBadgeClass: string
+}
+
 const featuredStats = [
   'Ball Possession',
   'Total Shots',
@@ -65,12 +73,111 @@ function hasUsableActualScore(
   return typeof score?.home === 'number' && typeof score.away === 'number'
 }
 
-function getTimelineTitle(event: RealMatchEvent) {
+function getTimelineTypeText(event: RealMatchEvent) {
+  return `${event.type ?? ''} ${event.detail ?? ''}`.toLowerCase()
+}
+
+function isTimelineSubstitution(event: RealMatchEvent) {
+  return getTimelineTypeText(event).includes('substitution')
+}
+
+function isTimelineVar(event: RealMatchEvent) {
+  return getTimelineTypeText(event).includes('var')
+}
+
+function isTimelineRedCard(event: RealMatchEvent) {
+  const typeText = getTimelineTypeText(event)
+
+  return typeText.includes('red') && typeText.includes('card')
+}
+
+function isTimelineYellowCard(event: RealMatchEvent) {
+  const typeText = getTimelineTypeText(event)
+
+  return typeText.includes('yellow') && typeText.includes('card') && !isTimelineRedCard(event)
+}
+
+function isTimelineGoal(event: RealMatchEvent) {
+  const typeText = getTimelineTypeText(event)
+
+  return typeText.includes('goal') && !typeText.includes('own goal cancelled')
+}
+
+function getTimelineTypeLabel(event: RealMatchEvent) {
+  if (isTimelineSubstitution(event)) return 'Substitution'
+  if (isTimelineVar(event)) return 'VAR check'
+  if (isTimelineRedCard(event)) return 'Red card'
+  if (isTimelineYellowCard(event)) return 'Yellow card'
+  if (isTimelineGoal(event)) return 'Goal'
+
+  return event.type || 'Event'
+}
+
+function getTimelineEventStyle(event: RealMatchEvent): TimelineEventStyle {
+  if (isTimelineGoal(event)) {
+    return {
+      icon: '⚽',
+      cardClass: 'border-emerald-300/25 bg-emerald-300/10',
+      iconClass: 'border-emerald-300/30 bg-emerald-300/20 text-xl',
+      labelClass: 'text-emerald-200',
+      teamBadgeClass: 'bg-emerald-300/15 text-emerald-100'
+    }
+  }
+
+  if (isTimelineSubstitution(event)) {
+    return {
+      icon: '⇄',
+      cardClass: 'border-sky-300/25 bg-sky-300/10',
+      iconClass: 'border-sky-300/30 bg-sky-300/20 text-sky-100',
+      labelClass: 'text-sky-200',
+      teamBadgeClass: 'bg-sky-300/15 text-sky-100'
+    }
+  }
+
+  if (isTimelineVar(event)) {
+    return {
+      icon: '📺',
+      cardClass: 'border-violet-300/25 bg-violet-300/10',
+      iconClass: 'border-violet-300/30 bg-violet-300/20 text-lg',
+      labelClass: 'text-violet-200',
+      teamBadgeClass: 'bg-violet-300/15 text-violet-100'
+    }
+  }
+
+  if (isTimelineRedCard(event)) {
+    return {
+      icon: 'red-card',
+      cardClass: 'border-red-300/25 bg-red-300/10',
+      iconClass: 'border-red-300/30 bg-red-300/20',
+      labelClass: 'text-red-200',
+      teamBadgeClass: 'bg-red-300/15 text-red-100'
+    }
+  }
+
+  if (isTimelineYellowCard(event)) {
+    return {
+      icon: 'yellow-card',
+      cardClass: 'border-yellow-300/25 bg-yellow-300/10',
+      iconClass: 'border-yellow-300/30 bg-yellow-300/20',
+      labelClass: 'text-yellow-200',
+      teamBadgeClass: 'bg-yellow-300/15 text-yellow-100'
+    }
+  }
+
+  return {
+    icon: '•',
+    cardClass: 'border-white/10 bg-slate-950/45',
+    iconClass: 'border-white/10 bg-white/8 text-slate-300',
+    labelClass: 'text-slate-400',
+    teamBadgeClass: 'bg-white/8 text-slate-300'
+  }
+}
+
+function getTimelineTimeLabel(event: RealMatchEvent) {
   const minute = typeof event.elapsed === 'number' ? event.elapsed : '-'
   const extra = event.extra ? `+${event.extra}` : ''
-  const type = event.type || 'Event'
 
-  return `${minute}${extra}' · ${type}`
+  return `${minute}${extra}'`
 }
 
 function getTimelinePrimaryText(event: RealMatchEvent) {
@@ -89,6 +196,71 @@ function getTimelineMetaParts(event: RealMatchEvent) {
   }
 
   return parts
+}
+
+function renderTimelineIcon(style: TimelineEventStyle) {
+  if (style.icon === 'red-card') {
+    return (
+      <span
+        className="block h-5 w-3 rounded-[2px] border border-red-100/50 bg-red-500 shadow-lg"
+        aria-label="Red card"
+      />
+    )
+  }
+
+  if (style.icon === 'yellow-card') {
+    return (
+      <span
+        className="block h-5 w-3 rounded-[2px] border border-yellow-100/60 bg-yellow-300 shadow-lg"
+        aria-label="Yellow card"
+      />
+    )
+  }
+
+  return <span aria-hidden="true">{style.icon}</span>
+}
+
+function renderSubstitutionDetails(event: RealMatchEvent) {
+  const playerIn = event.playerName
+  const playerOut = event.secondaryPlayerName
+
+  if (!playerIn && !playerOut) {
+    return null
+  }
+
+  return (
+    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      {playerIn && (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-300/20 text-lg font-black text-emerald-100">
+            ↗
+          </span>
+
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
+              Player in
+            </p>
+            <p className="truncate text-sm font-black text-white">{playerIn}</p>
+          </div>
+        </div>
+      )}
+
+      {playerOut && (
+        <div className="flex items-center gap-3 rounded-2xl border border-red-300/20 bg-red-300/10 p-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-300/20 text-lg font-black text-red-100">
+            ↙
+          </span>
+
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-200">
+              Player out
+            </p>
+            <p className="truncate text-sm font-black text-white">{playerOut}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function RealMatchModal({
@@ -355,42 +527,69 @@ export function RealMatchModal({
                 {matchData.events.map((event, index) => {
                   const primaryText = getTimelinePrimaryText(event)
                   const metaParts = getTimelineMetaParts(event)
+                  const eventStyle = getTimelineEventStyle(event)
+                  const isSubstitution = isTimelineSubstitution(event)
 
                   return (
                     <div
                       key={`${event.elapsed}-${primaryText}-${index}`}
-                      className="rounded-2xl border border-white/10 bg-slate-950/45 p-4"
+                      className={`rounded-2xl border p-4 ${eventStyle.cardClass}`}
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <p className="font-black text-white">{getTimelineTitle(event)}</p>
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-base font-black ${eventStyle.iconClass}`}
+                        >
+                          {renderTimelineIcon(eventStyle)}
+                        </div>
 
-                        {event.teamName && (
-                          <p className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-300">
-                            {event.teamName}
-                          </p>
-                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className={`text-xs font-black uppercase tracking-[0.2em] ${eventStyle.labelClass}`}>
+                                {getTimelineTypeLabel(event)}
+                              </p>
+                              <p className="mt-1 text-lg font-black text-white">
+                                {getTimelineTimeLabel(event)}
+                              </p>
+                            </div>
+
+                            {event.teamName && (
+                              <p
+                                className={`rounded-full px-3 py-1 text-xs font-black ${eventStyle.teamBadgeClass}`}
+                              >
+                                {event.teamName}
+                              </p>
+                            )}
+                          </div>
+
+                          {isSubstitution ? (
+                            renderSubstitutionDetails(event)
+                          ) : (
+                            primaryText && (
+                              <p className="mt-2 text-sm font-bold text-slate-300">
+                                {primaryText}
+                              </p>
+                            )
+                          )}
+
+                          {metaParts.length > 0 && (
+                            <p className="mt-2 text-xs font-bold text-slate-400">
+                              {metaParts.join(' · ')}
+                            </p>
+                          )}
+
+                          {event.detail && event.detail !== primaryText && (
+                            <p className="mt-1 text-xs font-bold text-slate-500">{event.detail}</p>
+                          )}
+                        </div>
                       </div>
-
-                      {primaryText && (
-                        <p className="mt-2 text-sm font-bold text-slate-300">{primaryText}</p>
-                      )}
-
-                      {metaParts.length > 0 && (
-                        <p className="mt-1 text-xs font-bold text-slate-400">
-                          {metaParts.join(' · ')}
-                        </p>
-                      )}
-
-                      {event.detail && event.detail !== primaryText && (
-                        <p className="mt-1 text-xs font-bold text-slate-500">{event.detail}</p>
-                      )}
                     </div>
                   )
                 })}
               </div>
             ) : (
               <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-400">
-                Goals, cards and substitutions will appear here when available.
+                Goals, cards, VAR checks and substitutions will appear here when available.
               </p>
             )}
           </section>

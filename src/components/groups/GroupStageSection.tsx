@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTournamentData } from '../../context/TournamentDataContext'
+import { canFetchSportScoreMatchData } from '../../services/sportScore'
 import { usePredictionStore } from '../../store/predictionStore'
-import type { Fixture } from '../../types/tournament'
+import { useRealMatchStore } from '../../store/realMatchStore'
+import type { RealMatchData } from '../../types/realMatch'
+import type { Fixture, PredictionScore } from '../../types/tournament'
 import { getFixtureKickoffDate } from '../../utils/fixtureTime'
 import { MatchScoreCard } from './MatchScoreCard'
 
@@ -14,6 +17,17 @@ function isFixtureCompleted(
   const score = scores[fixture.id]
 
   return typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
+}
+
+function hasUsableActualScore(matchData?: RealMatchData) {
+  return typeof matchData?.score.home === 'number' && typeof matchData.score.away === 'number'
+}
+
+function buildActualScore(matchData: RealMatchData): PredictionScore {
+  return {
+    homeScore: matchData.score.home,
+    awayScore: matchData.score.away
+  }
 }
 
 function sortFixturesByDateAndTime(a: Fixture, b: Fixture) {
@@ -76,9 +90,14 @@ function getNextMatchFixture(fixtures: Fixture[]) {
 export function GroupStageSection() {
   const [highlightedFixtureId, setHighlightedFixtureId] = useState<string | null>(null)
   const [isJumpButtonVisible, setIsJumpButtonVisible] = useState(true)
+  const [isLoadingActualScores, setIsLoadingActualScores] = useState(false)
+  const [actualScoreLoadSummary, setActualScoreLoadSummary] = useState<string | null>(null)
+  const hasStartedAutoScoreLoad = useRef(false)
 
   const scores = usePredictionStore((state) => state.scores)
+  const replaceScores = usePredictionStore((state) => state.replaceScores)
   const resetPredictions = usePredictionStore((state) => state.resetPredictions)
+  const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
   const { fixtures, teams } = useTournamentData()
 
   const groupStageFixtures = useMemo(
@@ -90,6 +109,97 @@ export function GroupStageSection() {
     () => getNextMatchFixture(groupStageFixtures),
     [groupStageFixtures]
   )
+
+  const hasEmptyScoreFields = groupStageFixtures.some(
+    (fixture) => !isFixtureCompleted(fixture, scores)
+  )
+  const hasSportScoreFixtures = groupStageFixtures.some(canFetchSportScoreMatchData)
+
+  async function loadActualScores({ onlyEmpty }: { onlyEmpty: boolean }) {
+    if (isLoadingActualScores || !hasSportScoreFixtures) {
+      return
+    }
+
+    setIsLoadingActualScores(true)
+    setActualScoreLoadSummary(
+      onlyEmpty ? 'Checking empty score cards...' : 'Loading actual scores...'
+    )
+
+    const actualScores: Record<string, PredictionScore> = {}
+    let loadedCount = 0
+    let skippedCount = 0
+    let unavailableCount = 0
+
+    for (const fixture of groupStageFixtures) {
+      if (!canFetchSportScoreMatchData(fixture)) {
+        unavailableCount += 1
+        continue
+      }
+
+      const currentScore = usePredictionStore.getState().scores[fixture.id]
+
+      if (onlyEmpty && isFixtureCompleted(fixture, usePredictionStore.getState().scores)) {
+        skippedCount += 1
+        continue
+      }
+
+      await fetchMatchData(fixture, true)
+
+      const matchData = useRealMatchStore.getState().matches[fixture.id]
+
+      if (!hasUsableActualScore(matchData)) {
+        unavailableCount += 1
+        continue
+      }
+
+      const latestScore = usePredictionStore.getState().scores[fixture.id]
+
+      if (onlyEmpty && isFixtureCompleted(fixture, usePredictionStore.getState().scores)) {
+        skippedCount += 1
+        continue
+      }
+
+      actualScores[fixture.id] = {
+        ...currentScore,
+        ...latestScore,
+        ...buildActualScore(matchData)
+      }
+      loadedCount += 1
+    }
+
+    if (Object.keys(actualScores).length > 0) {
+      replaceScores({
+        ...usePredictionStore.getState().scores,
+        ...actualScores
+      })
+    }
+
+    const summaryParts = [`${loadedCount} loaded`]
+
+    if (skippedCount > 0) {
+      summaryParts.push(`${skippedCount} skipped`)
+    }
+
+    if (unavailableCount > 0) {
+      summaryParts.push(`${unavailableCount} unavailable`)
+    }
+
+    setActualScoreLoadSummary(`Actual scores: ${summaryParts.join(' · ')}.`)
+    setIsLoadingActualScores(false)
+  }
+
+  useEffect(() => {
+    if (hasStartedAutoScoreLoad.current || isLoadingActualScores) {
+      return
+    }
+
+    if (!groupStageFixtures.length || !hasEmptyScoreFields) {
+      return
+    }
+
+    hasStartedAutoScoreLoad.current = true
+    void loadActualScores({ onlyEmpty: true })
+  }, [groupStageFixtures, hasEmptyScoreFields, isLoadingActualScores])
 
   useEffect(() => {
     if (!nextMatchFixture) {
@@ -224,14 +334,31 @@ export function GroupStageSection() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={resetPredictions}
-              className="rounded-2xl border border-red-300/30 bg-red-400/10 px-5 py-3 text-sm font-black text-red-200 transition hover:-translate-y-0.5 hover:bg-red-400/20"
-            >
-              Reset all scores
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
+              <button
+                type="button"
+                disabled={isLoadingActualScores || !hasSportScoreFixtures}
+                onClick={() => void loadActualScores({ onlyEmpty: false })}
+                className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-5 py-3 text-sm font-black text-emerald-200 transition hover:-translate-y-0.5 hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
+              >
+                {isLoadingActualScores ? 'Loading actual scores...' : 'Load actual Score'}
+              </button>
+
+              <button
+                type="button"
+                onClick={resetPredictions}
+                className="rounded-2xl border border-red-300/30 bg-red-400/10 px-5 py-3 text-sm font-black text-red-200 transition hover:-translate-y-0.5 hover:bg-red-400/20"
+              >
+                Reset all scores
+              </button>
+            </div>
           </div>
+
+          {actualScoreLoadSummary && (
+            <p className="relative mt-4 text-right text-xs font-bold text-emerald-100">
+              {actualScoreLoadSummary}
+            </p>
+          )}
 
           <div className="relative mt-6 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>

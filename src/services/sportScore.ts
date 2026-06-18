@@ -11,6 +11,7 @@ import type {
 
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '')
 const SPORT_SCORE_PROXY_URL = `${SUPABASE_URL}/functions/v1/sportscore-match`
+const REQUIRED_COMPETITION = 'FIFA World Cup'
 
 const sportScoreMatchSlugAliases: Record<string, string> = {
   'korea-republic': 'south-korea',
@@ -37,6 +38,7 @@ const sportScoreComparableTeamAliases: Record<string, string> = {
 type SportScoreMatch = {
   home: string
   away: string
+  competition?: string
   home_logo?: string
   away_logo?: string
   home_score: number | null
@@ -61,6 +63,8 @@ type SportScoreUnavailableResponse = {
   error?: string
   upstreamStatus?: number
   slug?: string
+  competition?: string
+  requiredCompetition?: string
 }
 
 type SportScoreProxyResponse = SportScoreMatchResponse | SportScoreUnavailableResponse
@@ -87,11 +91,7 @@ function shouldReverseTeamOrder(match: SportScoreMatch, fixture: Fixture) {
   const matchHome = getComparableTeamSlug(match.home)
   const matchAway = getComparableTeamSlug(match.away)
 
-  if (matchHome === fixtureAway && matchAway === fixtureHome) {
-    return true
-  }
-
-  return false
+  return matchHome === fixtureAway && matchAway === fixtureHome
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -396,8 +396,7 @@ function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamSta
       const statistics = normalizeTeamStatRows(groupedStats)
 
       if (statistics.length) {
-        const isHomeTeam = teamName.toLowerCase() === match.home.toLowerCase()
-        const targetStats = isHomeTeam ? homeStats : awayStats
+        const targetStats = teamName.toLowerCase() === match.home.toLowerCase() ? homeStats : awayStats
         targetStats.push(...statistics)
       }
 
@@ -693,6 +692,18 @@ function isAvailableMatchResponse(data: SportScoreProxyResponse): data is SportS
   return 'match' in data && isRecord(data.match)
 }
 
+function assertFifaWorldCupCompetition(match: SportScoreMatch) {
+  const competition = String(match.competition ?? '').trim()
+
+  if (competition !== REQUIRED_COMPETITION) {
+    throw new Error(
+      competition
+        ? `SportScore match ignored because competition is ${competition}, not ${REQUIRED_COMPETITION}.`
+        : `SportScore match ignored because competition is not ${REQUIRED_COMPETITION}.`
+    )
+  }
+}
+
 export function getSportScoreFixtureSlugCandidates(fixture: Fixture) {
   const homeSlug = getSportScoreTeamSlug(fixture.homeTeamId)
   const awaySlug = getSportScoreTeamSlug(fixture.awayTeamId)
@@ -722,10 +733,12 @@ export async function fetchSportScoreMatchData(
   const data = (await response.json()) as SportScoreProxyResponse
 
   if (!isAvailableMatchResponse(data)) {
-    throw new Error('SportScore match data is not available for this fixture yet.')
+    throw new Error(data.error || 'SportScore match data is not available for this fixture yet.')
   }
 
   const match = data.match
+  assertFifaWorldCupCompetition(match)
+
   const reverseTeamOrder = fixture ? shouldReverseTeamOrder(match, fixture) : false
   const homeScore = reverseTeamOrder ? match.away_score : match.home_score
   const awayScore = reverseTeamOrder ? match.home_score : match.away_score

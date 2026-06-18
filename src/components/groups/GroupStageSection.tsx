@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTournamentData } from '../../context/TournamentDataContext'
 import { usePredictionStore } from '../../store/predictionStore'
-import { useRealMatchStore } from '../../store/realMatchStore'
 import type { Fixture } from '../../types/tournament'
 import { getFixtureKickoffDate } from '../../utils/fixtureTime'
 import { MatchScoreCard } from './MatchScoreCard'
 
-const REAL_MATCH_PRELOAD_BATCH_SIZE = 6
 const JUMP_BUTTON_AUTO_HIDE_MS = 7000
 
 function isFixtureCompleted(
@@ -81,7 +79,6 @@ export function GroupStageSection() {
 
   const scores = usePredictionStore((state) => state.scores)
   const resetPredictions = usePredictionStore((state) => state.resetPredictions)
-  const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
   const { fixtures, teams } = useTournamentData()
 
   const groupStageFixtures = useMemo(
@@ -93,28 +90,6 @@ export function GroupStageSection() {
     () => getNextMatchFixture(groupStageFixtures),
     [groupStageFixtures]
   )
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function preloadRealMatchData() {
-      for (let index = 0; index < groupStageFixtures.length; index += REAL_MATCH_PRELOAD_BATCH_SIZE) {
-        if (cancelled) {
-          return
-        }
-
-        const batch = groupStageFixtures.slice(index, index + REAL_MATCH_PRELOAD_BATCH_SIZE)
-
-        await Promise.all(batch.map((fixture) => fetchMatchData(fixture)))
-      }
-    }
-
-    void preloadRealMatchData()
-
-    return () => {
-      cancelled = true
-    }
-  }, [fetchMatchData, groupStageFixtures])
 
   useEffect(() => {
     if (!nextMatchFixture) {

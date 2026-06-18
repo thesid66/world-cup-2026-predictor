@@ -12,6 +12,7 @@ import { AuthModal } from '../components/auth/AuthModal'
 import { AuthProvider, useAuth } from '../context/AuthContext'
 import { PredictionSyncProvider, usePredictionSync } from '../context/PredictionSyncContext'
 import { TournamentDataProvider, useTournamentData } from '../context/TournamentDataContext'
+import { GoogleAnalytics } from '../components/analytics/GoogleAnalytics'
 
 function AppContent() {
   const scores = usePredictionStore((state) => state.scores)
@@ -52,6 +53,8 @@ function AppContent() {
 
   return (
     <>
+      <GoogleAnalytics />
+
       <AppShell
         onAuthClick={() => {
           setAuthModalDismissed(false)

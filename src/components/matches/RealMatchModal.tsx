@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import type { Fixture, Team } from '../../types/tournament'
-import type { RealMatchEvent, RealMatchStatistic } from '../../types/realMatch'
+import type { RealMatchEvent, RealMatchLineupPlayer, RealMatchStatistic } from '../../types/realMatch'
 import { canFetchSportScoreMatchData } from '../../services/sportScore'
 import { TeamFlag } from '../ui/TeamFlag'
 
@@ -263,41 +263,29 @@ function renderSubstitutionDetails(event: RealMatchEvent) {
   )
 }
 
-function normalizeTeamLabel(value?: string) {
-  return value?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? ''
-}
-
-function getSubstitutionEventsForTeam(events: RealMatchEvent[], teamNames: Array<string | undefined>) {
-  const teamKeys = new Set(teamNames.map(normalizeTeamLabel).filter(Boolean))
-
-  return events.filter((event) => {
-    if (!isTimelineSubstitution(event)) return false
-    if (!teamKeys.size) return false
-
-    return teamKeys.has(normalizeTeamLabel(event.teamName))
-  })
-}
-
-function renderSubstitutionSummaryList(substitutions: RealMatchEvent[], emptyMessage: string) {
-  if (!substitutions.length) {
+function renderBenchPlayerList(players: RealMatchLineupPlayer[], emptyMessage: string) {
+  if (!players.length) {
     return <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-500">{emptyMessage}</p>
   }
 
   return (
-    <div className="grid gap-3">
-      {substitutions.map((event, index) => (
+    <div className="grid gap-2">
+      {players.map((player, index) => (
         <div
-          key={`${event.elapsed}-${event.playerName}-${event.secondaryPlayerName}-${index}`}
-          className="rounded-2xl border border-sky-300/20 bg-sky-300/10 p-3"
+          key={`${player.number ?? index}-${player.name}`}
+          className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/45 p-3"
         >
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-black text-white">{getTimelineTimeLabel(event)}</p>
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-sky-200">
-              Substitution
-            </p>
-          </div>
+          <p className="flex h-8 min-w-8 items-center justify-center rounded-full bg-white/8 px-2 text-xs font-black text-slate-300">
+            {player.number ?? '-'}
+          </p>
 
-          {renderSubstitutionDetails(event)}
+          <p className="truncate text-sm font-black text-white">{player.name}</p>
+
+          {player.position && (
+            <p className="rounded-full bg-sky-300/10 px-2 py-1 text-[10px] font-black uppercase text-sky-200">
+              {player.position}
+            </p>
+          )}
         </div>
       ))}
     </div>
@@ -343,17 +331,9 @@ export function RealMatchModal({
   const homeStats = matchData?.statistics[0]?.statistics ?? []
   const awayStats = matchData?.statistics[1]?.statistics ?? []
   const availableStatTypes = getAvailableStatTypes(homeStats, awayStats)
-  const homeSubstitutions = getSubstitutionEventsForTeam(matchData?.events ?? [], [
-    matchData?.homeTeam.name,
-    homeTeam?.name,
-    homeTeam?.shortName
-  ])
-  const awaySubstitutions = getSubstitutionEventsForTeam(matchData?.events ?? [], [
-    matchData?.awayTeam.name,
-    awayTeam?.name,
-    awayTeam?.shortName
-  ])
-  const hasSubstitutionSummary = Boolean(homeSubstitutions.length || awaySubstitutions.length)
+  const homeBenchPlayers = matchData?.lineups?.homeSubs ?? []
+  const awayBenchPlayers = matchData?.lineups?.awaySubs ?? []
+  const hasBenchSummary = Boolean(homeBenchPlayers.length || awayBenchPlayers.length)
   const hasSportScoreData = canFetchSportScoreMatchData(fixture)
   const isLoadRealDataDisabled = !hasSportScoreData || loading || copyingRealData
 
@@ -534,7 +514,7 @@ export function RealMatchModal({
                 Match statistics
               </p>
               <h3 className="mt-1 text-xl font-black text-white">
-                {availableStatTypes.length ? 'Team comparison' : 'Substitutions'}
+                {availableStatTypes.length ? 'Team comparison' : 'Substitute benches'}
               </h3>
             </div>
 
@@ -559,39 +539,39 @@ export function RealMatchModal({
                   </div>
                 ))}
               </div>
-            ) : hasSubstitutionSummary ? (
+            ) : hasBenchSummary ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200">
-                      Home substitutions
+                      Home subs
                     </p>
                     <p className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-300">
                       {homeTeam?.shortName ?? matchData?.homeTeam.name ?? 'Home'}
                     </p>
                   </div>
 
-                  {renderSubstitutionSummaryList(homeSubstitutions, 'No home substitutions available.')}
+                  {renderBenchPlayerList(homeBenchPlayers, 'No home bench data available.')}
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-200">
-                      Away substitutions
+                      Away subs
                     </p>
                     <p className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-300">
                       {awayTeam?.shortName ?? matchData?.awayTeam.name ?? 'Away'}
                     </p>
                   </div>
 
-                  {renderSubstitutionSummaryList(awaySubstitutions, 'No away substitutions available.')}
+                  {renderBenchPlayerList(awayBenchPlayers, 'No away bench data available.')}
                 </div>
               </div>
             ) : (
               <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-400">
                 {loading
                   ? 'Loading team comparison from SportScore...'
-                  : 'Statistics and substitutions will appear here when SportScore has data for this fixture.'}
+                  : 'Statistics and substitute benches will appear here when SportScore has data for this fixture.'}
               </p>
             )}
           </section>

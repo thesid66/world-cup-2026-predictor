@@ -2,6 +2,8 @@ import type { Fixture } from '../types/tournament'
 import type {
   RealMatchData,
   RealMatchEvent,
+  RealMatchLineupPlayer,
+  RealMatchLineups,
   RealMatchStatistic,
   RealMatchStatus,
   RealMatchTeamStatistics
@@ -31,6 +33,7 @@ type SportScoreMatch = {
   incidents?: unknown[]
   stats?: unknown
   statistics?: unknown
+  lineups?: unknown
 }
 
 type SportScoreMatchResponse = {
@@ -106,6 +109,10 @@ function readFirstTextValue(row: Record<string, unknown>, keys: string[]) {
   }
 
   return undefined
+}
+
+function toOptionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined
 }
 
 function toStatisticValue(value: unknown): string | number | null {
@@ -417,7 +424,71 @@ function toOptionalNumber(value: unknown): number | null | undefined {
   return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : undefined
 }
 
-function readIncidentScore(incident: Record<string, unknown>) {
+function normalizeLineupPlayer(value: unknown): RealMatchLineupPlayer | null {
+  if (!isRecord(value)) return null
+
+  const name = readFirstTextValue(value, ['name', 'player', 'playerName', 'player_name'])
+
+  if (!name) return null
+
+  return {
+    name,
+    number: readFirstValue(value, ['number', 'shirt_number', 'shirtNumber']) as number | string | null | undefined,
+    position: readFirstTextValue(value, ['position', 'pos', 'role']),
+    captain: toOptionalBoolean(readFirstValue(value, ['captain', 'is_captain', 'isCaptain'])),
+    rating: readFirstValue(value, ['rating', 'rate']) as string | number | null | undefined
+  }
+}
+
+function normalizeLineupPlayers(value: unknown) {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.map(normalizeLineupPlayer).filter((player): player is RealMatchLineupPlayer => Boolean(player))
+}
+
+function normalizeSportScoreLineups(match: SportScoreMatch): RealMatchLineups | undefined {
+  if (!isRecord(match.lineups)) {
+    return undefined
+  }
+
+  return {
+    confirmed: toOptionalBoolean(readFirstValue(match.lineups, ['confirmed'])),
+    homeFormation: readFirstTextValue(match.lineups, ['home_formation', 'homeFormation']) ?? null,
+    awayFormation: readFirstTextValue(match.lineups, ['away_formation', 'awayFormation']) ?? null,
+    homeCoach: readFirstTextValue(match.lineups, ['home_coach', 'homeCoach']) ?? null,
+    awayCoach: readFirstTextValue(match.lineups, ['away_coach', 'awayCoach']) ?? null,
+    homeXi: normalizeLineupPlayers(readFirstValue(match.lineups, ['home_xi', 'homeXi'])),
+    awayXi: normalizeLineupPlayers(readFirstValue(match.lineups, ['away_xi', 'awayXi'])),
+    homeSubs: normalizeLineupPlayers(readFirstValue(match.lineups, ['home_subs', 'homeSubs'])),
+    awaySubs: normalizeLineupPlayers(readFirstValue(match.lineups, ['away_subs', 'awaySubs']))
+  }
+}
+
+function alignTeamStatistics(statistics: RealMatchTeamStatistics[], reverseTeamOrder: boolean) {
+  return reverseTeamOrder ? [...statistics].reverse() : statistics
+}
+
+function alignLineups(lineups: RealMatchLineups | undefined, reverseTeamOrder: boolean): RealMatchLineups | undefined {
+  if (!lineups || !reverseTeamOrder) {
+    return lineups
+  }
+
+  return {
+    confirmed: lineups.confirmed,
+    homeFormation: lineups.awayFormation,
+    awayFormation: lineups.homeFormation,
+    homeCoach: lineups.awayCoach,
+    awayCoach: lineups.homeCoach,
+    homeXi: lineups.awayXi,
+    awayXi: lineups.homeXi,
+    homeSubs: lineups.awaySubs,
+    awaySubs: lineups.homeSubs
+  }
+}
+
+function readIncidentScore(incident: Record<string, unknown>, reverseTeamOrder: boolean) {
   const score = readFirstTextValue(incident, ['score', 'scoreDisplay', 'score_display', 'result'])
 
   if (score) {
@@ -428,7 +499,7 @@ function readIncidentScore(incident: Record<string, unknown>) {
   const awayScore = readFirstValue(incident, ['away_score', 'awayScore', 'away_team_score'])
 
   if (homeScore !== undefined && awayScore !== undefined) {
-    return `${homeScore} - ${awayScore}`
+    return reverseTeamOrder ? `${awayScore} - ${homeScore}` : `${homeScore} - ${awayScore}`
   }
 
   return undefined
@@ -463,7 +534,7 @@ function buildEventDisplayText(type: string, playerName?: string, secondaryPlaye
   return playerName
 }
 
-function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
+function normalizeSportScoreEvents(match: SportScoreMatch, reverseTeamOrder: boolean): RealMatchEvent[] {
   if (!Array.isArray(match.incidents)) {
     return []
   }
@@ -542,7 +613,7 @@ function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
 
     const teamName = normalizeIncidentTeamName(teamValue, match)
     const detail = readFirstTextValue(incident, ['detail', 'text', 'description', 'comment', 'reason']) ?? ''
-    const scoreDisplay = readIncidentScore(incident)
+    const scoreDisplay = readIncidentScore(incident, reverseTeamOrder)
 
     if (!type && !playerName && !secondaryPlayerName && !detail) return
 
@@ -578,7 +649,10 @@ export function canFetchSportScoreMatchData(fixture: Fixture) {
   return fixture.stage === 'group' && Boolean(fixture.homeTeamId && fixture.awayTeamId)
 }
 
-export async function fetchSportScoreMatchData(slug: string): Promise<RealMatchData> {
+export async function fetchSportScoreMatchData(
+  slug: string,
+  reverseTeamOrder = false
+): Promise<RealMatchData> {
   if (!SUPABASE_URL) {
     throw new Error('SportScore proxy is not configured.')
   }
@@ -597,21 +671,31 @@ export async function fetchSportScoreMatchData(slug: string): Promise<RealMatchD
   }
 
   const match = data.match
+  const homeScore = reverseTeamOrder ? match.away_score : match.home_score
+  const awayScore = reverseTeamOrder ? match.home_score : match.away_score
+  const rawLineups = normalizeSportScoreLineups(match)
 
   return {
     provider: 'sportscore',
     apiFixtureId: slug,
     fetchedAt: data.updated,
     status: normalizeSportScoreStatus(match.status, match.status_text, match.live_minute),
-    homeTeam: { name: match.home, logo: match.home_logo || undefined },
-    awayTeam: { name: match.away, logo: match.away_logo || undefined },
-    score: {
-      home: match.home_score,
-      away: match.away_score,
-      display: formatScore(match.home_score, match.away_score)
+    homeTeam: {
+      name: reverseTeamOrder ? match.away : match.home,
+      logo: reverseTeamOrder ? match.away_logo || undefined : match.home_logo || undefined
     },
-    statistics: normalizeSportScoreStatistics(match),
-    events: normalizeSportScoreEvents(match)
+    awayTeam: {
+      name: reverseTeamOrder ? match.home : match.away,
+      logo: reverseTeamOrder ? match.home_logo || undefined : match.away_logo || undefined
+    },
+    score: {
+      home: homeScore,
+      away: awayScore,
+      display: formatScore(homeScore, awayScore)
+    },
+    statistics: alignTeamStatistics(normalizeSportScoreStatistics(match), reverseTeamOrder),
+    events: normalizeSportScoreEvents(match, reverseTeamOrder),
+    lineups: alignLineups(rawLineups, reverseTeamOrder)
   }
 }
 
@@ -623,8 +707,8 @@ export async function fetchSportScoreMatchDataForFixture(fixture: Fixture): Prom
   const [directSlug, reverseSlug] = getSportScoreFixtureSlugCandidates(fixture)
 
   try {
-    return await fetchSportScoreMatchData(directSlug)
+    return await fetchSportScoreMatchData(directSlug, false)
   } catch {
-    return fetchSportScoreMatchData(reverseSlug)
+    return fetchSportScoreMatchData(reverseSlug, true)
   }
 }

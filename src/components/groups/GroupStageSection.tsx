@@ -228,7 +228,7 @@ export function GroupStageSection() {
   const progress = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0
 
   return (
-    <section id="predictions" className="mt-6 scroll-mt-6">
+    <section id="fixtures" className="mt-6 scroll-mt-6">
       <div className="mb-6 overflow-hidden rounded-4xl border border-white/10 bg-slate-950/50 shadow-2xl backdrop-blur-xl">
         <div className="relative p-5 sm:p-6">
           <div className="absolute inset-0 bg-linear-to-r from-yellow-300/10 via-sky-400/10 to-emerald-300/10" />
@@ -240,11 +240,11 @@ export function GroupStageSection() {
               </p>
 
               <h2 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
-                Fixture-by-fixture predictor
+                Group-stage fixtures
               </h2>
 
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                Predict the tournament in match order. Scores update group standings, third-place
+                Enter scores or load real match data. Scores update group standings, third-place
                 ranking and knockout qualification automatically.
               </p>
             </div>
@@ -275,7 +275,7 @@ export function GroupStageSection() {
 
             <div className="rounded-2xl border border-white/10 bg-white/8 px-5 py-4 text-center">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                Predicted
+                Scores entered
               </p>
 
               <p className="mt-1 text-3xl font-black text-white">

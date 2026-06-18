@@ -139,16 +139,6 @@ export function MatchScoreCard({
 
             <span className="text-xs font-bold text-slate-500">{fixture.city}</span>
           </div>
-
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-black ${
-              isCompleted
-                ? 'bg-emerald-300/15 text-emerald-200 ring-1 ring-emerald-300/25'
-                : 'bg-white/8 text-slate-400'
-            }`}
-          >
-            {isCompleted ? 'Predicted' : 'Pending'}
-          </span>
         </div>
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
@@ -243,7 +233,7 @@ export function MatchScoreCard({
                 }`}
               >
                 {loadRealDataStatus === 'copied'
-                  ? 'Prediction replaced with actual score.'
+                  ? 'Score replaced with actual result.'
                   : loadRealDataStatus === 'unavailable'
                     ? 'Actual score is not available yet.'
                     : 'Could not load real data.'}

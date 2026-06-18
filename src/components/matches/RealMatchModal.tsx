@@ -263,6 +263,47 @@ function renderSubstitutionDetails(event: RealMatchEvent) {
   )
 }
 
+function normalizeTeamLabel(value?: string) {
+  return value?.toLowerCase().replace(/[^a-z0-9]/g, '') ?? ''
+}
+
+function getSubstitutionEventsForTeam(events: RealMatchEvent[], teamNames: Array<string | undefined>) {
+  const teamKeys = new Set(teamNames.map(normalizeTeamLabel).filter(Boolean))
+
+  return events.filter((event) => {
+    if (!isTimelineSubstitution(event)) return false
+    if (!teamKeys.size) return false
+
+    return teamKeys.has(normalizeTeamLabel(event.teamName))
+  })
+}
+
+function renderSubstitutionSummaryList(substitutions: RealMatchEvent[], emptyMessage: string) {
+  if (!substitutions.length) {
+    return <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-500">{emptyMessage}</p>
+  }
+
+  return (
+    <div className="grid gap-3">
+      {substitutions.map((event, index) => (
+        <div
+          key={`${event.elapsed}-${event.playerName}-${event.secondaryPlayerName}-${index}`}
+          className="rounded-2xl border border-sky-300/20 bg-sky-300/10 p-3"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-black text-white">{getTimelineTimeLabel(event)}</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-sky-200">
+              Substitution
+            </p>
+          </div>
+
+          {renderSubstitutionDetails(event)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function RealMatchModal({
   fixture,
   homeTeam,
@@ -302,6 +343,17 @@ export function RealMatchModal({
   const homeStats = matchData?.statistics[0]?.statistics ?? []
   const awayStats = matchData?.statistics[1]?.statistics ?? []
   const availableStatTypes = getAvailableStatTypes(homeStats, awayStats)
+  const homeSubstitutions = getSubstitutionEventsForTeam(matchData?.events ?? [], [
+    matchData?.homeTeam.name,
+    homeTeam?.name,
+    homeTeam?.shortName
+  ])
+  const awaySubstitutions = getSubstitutionEventsForTeam(matchData?.events ?? [], [
+    matchData?.awayTeam.name,
+    awayTeam?.name,
+    awayTeam?.shortName
+  ])
+  const hasSubstitutionSummary = Boolean(homeSubstitutions.length || awaySubstitutions.length)
   const hasSportScoreData = canFetchSportScoreMatchData(fixture)
   const isLoadRealDataDisabled = !hasSportScoreData || loading || copyingRealData
 
@@ -481,7 +533,9 @@ export function RealMatchModal({
               <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-300">
                 Match statistics
               </p>
-              <h3 className="mt-1 text-xl font-black text-white">Team comparison</h3>
+              <h3 className="mt-1 text-xl font-black text-white">
+                {availableStatTypes.length ? 'Team comparison' : 'Substitutions'}
+              </h3>
             </div>
 
             {availableStatTypes.length ? (
@@ -505,11 +559,39 @@ export function RealMatchModal({
                   </div>
                 ))}
               </div>
+            ) : hasSubstitutionSummary ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200">
+                      Home substitutions
+                    </p>
+                    <p className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-300">
+                      {homeTeam?.shortName ?? matchData?.homeTeam.name ?? 'Home'}
+                    </p>
+                  </div>
+
+                  {renderSubstitutionSummaryList(homeSubstitutions, 'No home substitutions available.')}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-200">
+                      Away substitutions
+                    </p>
+                    <p className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-300">
+                      {awayTeam?.shortName ?? matchData?.awayTeam.name ?? 'Away'}
+                    </p>
+                  </div>
+
+                  {renderSubstitutionSummaryList(awaySubstitutions, 'No away substitutions available.')}
+                </div>
+              </div>
             ) : (
               <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-400">
                 {loading
                   ? 'Loading team comparison from SportScore...'
-                  : 'Statistics will appear here when SportScore has data for this fixture.'}
+                  : 'Statistics and substitutions will appear here when SportScore has data for this fixture.'}
               </p>
             )}
           </section>

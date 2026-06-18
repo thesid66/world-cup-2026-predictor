@@ -34,7 +34,7 @@ export function getFixtureKickoffDate(fixture: Fixture): Date | null {
   return new Date(etDate.getTime() + 4 * 60 * 60 * 1000)
 }
 
-export function formatNepalFixtureDateTime(fixture: Fixture) {
+export function formatLocalFixtureDateTime(fixture: Fixture) {
   const utcDate = getFixtureKickoffDate(fixture)
 
   if (!utcDate) {
@@ -42,18 +42,18 @@ export function formatNepalFixtureDateTime(fixture: Fixture) {
   }
 
   return new Intl.DateTimeFormat('en', {
-    timeZone: 'Asia/Kathmandu',
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true
+    hour12: true,
+    timeZoneName: 'short'
   }).format(utcDate)
 }
 
-export function formatNepalFixtureTime(fixture: Fixture) {
+export function formatLocalFixtureTime(fixture: Fixture) {
   const utcDate = getFixtureKickoffDate(fixture)
 
   if (!utcDate) {
@@ -61,9 +61,9 @@ export function formatNepalFixtureTime(fixture: Fixture) {
   }
 
   return new Intl.DateTimeFormat('en', {
-    timeZone: 'Asia/Kathmandu',
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true
+    hour12: true,
+    timeZoneName: 'short'
   }).format(utcDate)
 }

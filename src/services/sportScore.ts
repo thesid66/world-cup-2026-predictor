@@ -7,8 +7,8 @@ import type {
   RealMatchTeamStatistics
 } from '../types/realMatch'
 
-const SPORT_SCORE_BASE_URL = 'https://sportscore.com'
-const SPORT_SCORE_SOURCE = 'wcpredict26'
+const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '')
+const SPORT_SCORE_PROXY_URL = `${SUPABASE_URL}/functions/v1/sportscore-match`
 
 const sportScoreMatchSlugAliases: Record<string, string> = {
   'korea-republic': 'south-korea',
@@ -21,8 +21,8 @@ const sportScoreMatchSlugAliases: Record<string, string> = {
 type SportScoreMatch = {
   home: string
   away: string
-  home_logo: string
-  away_logo: string
+  home_logo?: string
+  away_logo?: string
   home_score: number | null
   away_score: number | null
   status: string
@@ -42,56 +42,8 @@ function getSportScoreTeamSlug(teamId: string) {
   return sportScoreMatchSlugAliases[teamId] ?? teamId
 }
 
-function normalizeSportScoreStatus(status: string, statusText: string, liveMinute: number | null): RealMatchStatus {
-  const normalized = status.toLowerCase()
-
-  if (normalized === 'live') {
-    return { long: statusText || 'Live', short: 'LIVE', elapsed: liveMinute }
-  }
-
-  if (normalized === 'finished') {
-    return { long: statusText || 'Finished', short: 'FT', elapsed: null }
-  }
-
-  if (normalized === 'postponed') {
-    return { long: statusText || 'Postponed', short: 'PST', elapsed: null }
-  }
-
-  if (normalized === 'cancelled' || normalized === 'canceled') {
-    return { long: statusText || 'Cancelled', short: 'CANC', elapsed: null }
-  }
-
-  return { long: statusText || 'Not started', short: 'NS', elapsed: null }
-}
-
-function formatScore(home: number | null, away: number | null) {
-  if (home === null || away === null) {
-    return '-'
-  }
-
-  return `${home} - ${away}`
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function toStatisticValue(value: unknown): string | number | null {
-  if (typeof value === 'string' || typeof value === 'number') {
-    return value
-  }
-
-  if (value === null || value === undefined) {
-    return null
-  }
-
-  if (isRecord(value)) {
-    return toStatisticValue(
-      value.value ?? value.display ?? value.total ?? value.count ?? value.name ?? value.text
-    )
-  }
-
-  return String(value)
 }
 
 function readFirstValue(row: Record<string, unknown>, keys: string[]) {
@@ -110,26 +62,58 @@ function readTextValue(value: unknown): string {
   }
 
   if (isRecord(value)) {
-    const nestedValue = readFirstValue(value, [
-      'name',
-      'fullName',
-      'full_name',
-      'displayName',
-      'display_name',
-      'teamName',
-      'team_name',
-      'playerName',
-      'player_name',
-      'title',
-      'label',
-      'text',
-      'value'
-    ])
-
-    return readTextValue(nestedValue)
+    return readTextValue(
+      readFirstValue(value, [
+        'name',
+        'fullName',
+        'full_name',
+        'displayName',
+        'display_name',
+        'teamName',
+        'team_name',
+        'playerName',
+        'player_name',
+        'title',
+        'label',
+        'text',
+        'value'
+      ])
+    )
   }
 
   return ''
+}
+
+function readFirstTextValue(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    if (!(key in row)) continue
+
+    const text = readTextValue(row[key])
+
+    if (text) {
+      return text
+    }
+  }
+
+  return undefined
+}
+
+function toStatisticValue(value: unknown): string | number | null {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return value
+  }
+
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  if (isRecord(value)) {
+    return toStatisticValue(
+      value.value ?? value.display ?? value.total ?? value.count ?? value.name ?? value.text
+    )
+  }
+
+  return String(value)
 }
 
 function normalizeStatType(value: unknown) {
@@ -168,6 +152,40 @@ function normalizeStatType(value: unknown) {
   return aliases[compactType] ?? rawType
 }
 
+function normalizeSportScoreStatus(
+  status: string,
+  statusText: string,
+  liveMinute: number | null
+): RealMatchStatus {
+  const normalized = status.toLowerCase()
+
+  if (normalized === 'live') {
+    return { long: statusText || 'Live', short: 'LIVE', elapsed: liveMinute }
+  }
+
+  if (normalized === 'finished') {
+    return { long: statusText || 'Finished', short: 'FT', elapsed: null }
+  }
+
+  if (normalized === 'postponed') {
+    return { long: statusText || 'Postponed', short: 'PST', elapsed: null }
+  }
+
+  if (normalized === 'cancelled' || normalized === 'canceled') {
+    return { long: statusText || 'Cancelled', short: 'CANC', elapsed: null }
+  }
+
+  return { long: statusText || 'Not started', short: 'NS', elapsed: null }
+}
+
+function formatScore(home: number | null, away: number | null) {
+  if (home === null || away === null) {
+    return '-'
+  }
+
+  return `${home} - ${away}`
+}
+
 function normalizeTeamStatRows(rows: unknown[]): RealMatchStatistic[] {
   const statistics: RealMatchStatistic[] = []
 
@@ -189,27 +207,37 @@ function normalizeTeamStatRows(rows: unknown[]): RealMatchStatistic[] {
 
     if (!type) return
 
-    const value = toStatisticValue(
-      readFirstValue(row, ['value', 'display', 'total', 'count', 'stat_value', 'statValue'])
-    )
-
-    statistics.push({ type, value })
+    statistics.push({
+      type,
+      value: toStatisticValue(
+        readFirstValue(row, ['value', 'display', 'total', 'count', 'stat_value', 'statValue'])
+      )
+    })
   })
 
   return statistics
 }
 
-function normalizeStatsObjectToRows(statsObject: Record<string, unknown>) {
-  const rows = readFirstValue(statsObject, ['stats', 'statistics', 'data', 'rows', 'items'])
-
-  if (Array.isArray(rows)) {
-    return rows
+function getStatsRows(rawStats: unknown) {
+  if (Array.isArray(rawStats)) {
+    return rawStats
   }
 
-  return null
+  if (isRecord(rawStats)) {
+    const rows = readFirstValue(rawStats, ['stats', 'statistics', 'data', 'rows', 'items'])
+
+    if (Array.isArray(rows)) {
+      return rows
+    }
+  }
+
+  return []
 }
 
-function normalizeObjectTeamStats(statsObject: Record<string, unknown>, match: SportScoreMatch) {
+function normalizeObjectTeamStats(
+  statsObject: Record<string, unknown>,
+  match: SportScoreMatch
+): RealMatchTeamStatistics[] {
   const homeRaw = readFirstValue(statsObject, [
     'home',
     'homeStats',
@@ -248,45 +276,27 @@ function normalizeObjectTeamStats(statsObject: Record<string, unknown>, match: S
   if (isRecord(homeRaw) && isRecord(awayRaw)) {
     const keys = Array.from(new Set([...Object.keys(homeRaw), ...Object.keys(awayRaw)]))
 
-    const homeStats = keys.map((key) => ({
-      type: normalizeStatType(key),
-      value: toStatisticValue(homeRaw[key])
-    }))
-
-    const awayStats = keys.map((key) => ({
-      type: normalizeStatType(key),
-      value: toStatisticValue(awayRaw[key])
-    }))
-
     return [
       {
         teamName: match.home,
         teamLogo: match.home_logo || undefined,
-        statistics: homeStats
+        statistics: keys.map((key) => ({
+          type: normalizeStatType(key),
+          value: toStatisticValue(homeRaw[key])
+        }))
       },
       {
         teamName: match.away,
         teamLogo: match.away_logo || undefined,
-        statistics: awayStats
+        statistics: keys.map((key) => ({
+          type: normalizeStatType(key),
+          value: toStatisticValue(awayRaw[key])
+        }))
       }
     ].filter((team) => team.statistics.length)
   }
 
-  return null
-}
-
-function getRawStatsRows(match: SportScoreMatch) {
-  const rawStats = match.stats ?? match.statistics
-
-  if (Array.isArray(rawStats)) {
-    return rawStats
-  }
-
-  if (isRecord(rawStats)) {
-    return normalizeStatsObjectToRows(rawStats)
-  }
-
-  return null
+  return []
 }
 
 function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamStatistics[] {
@@ -295,52 +305,16 @@ function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamSta
   if (isRecord(rawStats)) {
     const objectTeamStats = normalizeObjectTeamStats(rawStats, match)
 
-    if (objectTeamStats?.length) {
+    if (objectTeamStats.length) {
       return objectTeamStats
     }
   }
 
-  const statsRows = getRawStatsRows(match)
-
-  if (!Array.isArray(statsRows) || statsRows.length === 0) {
-    return []
-  }
-
-  const teamGroupedRows = statsRows.filter((row) => {
-    if (!isRecord(row)) return false
-
-    return Array.isArray(row.statistics) || Array.isArray(row.stats)
-  })
-
-  if (teamGroupedRows.length) {
-    const teamStatistics: RealMatchTeamStatistics[] = []
-
-    teamGroupedRows.forEach((row) => {
-      if (!isRecord(row)) return
-
-      const teamName = readTextValue(
-        readFirstValue(row, ['teamName', 'team_name', 'team', 'name'])
-      )
-
-      const statRows = readFirstValue(row, ['statistics', 'stats'])
-      const statistics = Array.isArray(statRows) ? normalizeTeamStatRows(statRows) : []
-
-      if (!statistics.length) return
-
-      teamStatistics.push({
-        teamName,
-        teamLogo: readTextValue(readFirstValue(row, ['teamLogo', 'team_logo', 'logo'])) || undefined,
-        statistics
-      })
-    })
-
-    return teamStatistics
-  }
-
+  const rows = getStatsRows(rawStats)
   const homeStats: RealMatchStatistic[] = []
   const awayStats: RealMatchStatistic[] = []
 
-  statsRows.forEach((row) => {
+  rows.forEach((row) => {
     if (Array.isArray(row)) {
       const type = normalizeStatType(row[0])
 
@@ -353,42 +327,60 @@ function normalizeSportScoreStatistics(match: SportScoreMatch): RealMatchTeamSta
 
     if (!isRecord(row)) return
 
+    const groupedStats = readFirstValue(row, ['statistics', 'stats'])
+
+    if (Array.isArray(groupedStats)) {
+      const teamName = readTextValue(readFirstValue(row, ['teamName', 'team_name', 'team', 'name']))
+      const statistics = normalizeTeamStatRows(groupedStats)
+
+      if (statistics.length) {
+        const isHomeTeam = teamName.toLowerCase() === match.home.toLowerCase()
+        const targetStats = isHomeTeam ? homeStats : awayStats
+        targetStats.push(...statistics)
+      }
+
+      return
+    }
+
     const type = normalizeStatType(
       readFirstValue(row, ['type', 'name', 'key', 'label', 'title', 'stat', 'stat_type'])
     )
 
     if (!type) return
 
-    const homeValue = toStatisticValue(
-      readFirstValue(row, [
-        'home',
-        'home_value',
-        'homeValue',
-        'home_stat',
-        'homeStat',
-        'home_total',
-        'homeTotal',
-        'local',
-        'local_value'
-      ])
-    )
+    homeStats.push({
+      type,
+      value: toStatisticValue(
+        readFirstValue(row, [
+          'home',
+          'home_value',
+          'homeValue',
+          'home_stat',
+          'homeStat',
+          'home_total',
+          'homeTotal',
+          'local',
+          'local_value'
+        ])
+      )
+    })
 
-    const awayValue = toStatisticValue(
-      readFirstValue(row, [
-        'away',
-        'away_value',
-        'awayValue',
-        'away_stat',
-        'awayStat',
-        'away_total',
-        'awayTotal',
-        'visitor',
-        'visitor_value'
-      ])
-    )
-
-    homeStats.push({ type, value: homeValue })
-    awayStats.push({ type, value: awayValue })
+    awayStats.push({
+      type,
+      value: toStatisticValue(
+        readFirstValue(row, [
+          'away',
+          'away_value',
+          'awayValue',
+          'away_stat',
+          'awayStat',
+          'away_total',
+          'awayTotal',
+          'visitor',
+          'visitor_value'
+        ])
+      )
+    })
   })
 
   if (!homeStats.length && !awayStats.length) {
@@ -415,22 +407,8 @@ function toOptionalNumber(value: unknown): number | null | undefined {
   return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : undefined
 }
 
-function readIncidentText(incident: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    if (!(key in incident)) continue
-
-    const text = readTextValue(incident[key])
-
-    if (text) {
-      return text
-    }
-  }
-
-  return undefined
-}
-
 function readIncidentScore(incident: Record<string, unknown>) {
-  const score = readIncidentText(incident, ['score', 'scoreDisplay', 'score_display', 'result'])
+  const score = readFirstTextValue(incident, ['score', 'scoreDisplay', 'score_display', 'result'])
 
   if (score) {
     return score
@@ -485,7 +463,7 @@ function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
   match.incidents.forEach((incident) => {
     if (!isRecord(incident)) return
 
-    const type = readIncidentText(incident, [
+    const type = readFirstTextValue(incident, [
       'type',
       'type_name',
       'typeName',
@@ -496,7 +474,7 @@ function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
       'event'
     ]) ?? ''
 
-    const playerName = readIncidentText(incident, [
+    const playerName = readFirstTextValue(incident, [
       'player',
       'playerName',
       'player_name',
@@ -514,7 +492,7 @@ function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
       'in_name'
     ])
 
-    const secondaryPlayerName = readIncidentText(incident, [
+    const secondaryPlayerName = readFirstTextValue(incident, [
       'secondaryPlayer',
       'secondary_player',
       'player2',
@@ -531,7 +509,7 @@ function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
       'out_name'
     ])
 
-    const assistName = readIncidentText(incident, [
+    const assistName = readFirstTextValue(incident, [
       'assist',
       'assistName',
       'assist_name',
@@ -553,7 +531,7 @@ function normalizeSportScoreEvents(match: SportScoreMatch): RealMatchEvent[] {
     ])
 
     const teamName = normalizeIncidentTeamName(teamValue, match)
-    const detail = readIncidentText(incident, ['detail', 'text', 'description', 'comment', 'reason']) ?? ''
+    const detail = readFirstTextValue(incident, ['detail', 'text', 'description', 'comment', 'reason']) ?? ''
     const scoreDisplay = readIncidentScore(incident)
 
     if (!type && !playerName && !secondaryPlayerName && !detail) return
@@ -587,8 +565,12 @@ export function canFetchSportScoreMatchData(fixture: Fixture) {
 }
 
 export async function fetchSportScoreMatchData(slug: string): Promise<RealMatchData> {
-  const params = new URLSearchParams({ sport: 'football', slug, src: SPORT_SCORE_SOURCE })
-  const response = await fetch(`${SPORT_SCORE_BASE_URL}/api/widget/match/?${params.toString()}`)
+  if (!SUPABASE_URL) {
+    throw new Error('SportScore proxy is not configured.')
+  }
+
+  const params = new URLSearchParams({ sport: 'football', slug })
+  const response = await fetch(`${SPORT_SCORE_PROXY_URL}?${params.toString()}`)
 
   if (!response.ok) {
     throw new Error(`SportScore match request failed: ${response.status} ${response.statusText}`)

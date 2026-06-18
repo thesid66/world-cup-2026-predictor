@@ -13,6 +13,10 @@ type SignInInput = {
   password: string
 }
 
+type EmailInput = {
+  email: string
+}
+
 type AuthContextValue = {
   user: User | null
   session: Session | null
@@ -20,6 +24,7 @@ type AuthContextValue = {
   isConfigured: boolean
   signInWithPassword: (input: SignInInput) => Promise<void>
   signUpWithPassword: (input: SignUpInput) => Promise<{ needsEmailConfirmation: boolean }>
+  resendEmailConfirmation: (input: EmailInput) => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -27,6 +32,24 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 type AuthProviderProps = {
   children: ReactNode
+}
+
+function normaliseEmail(email: string) {
+  return email.trim().toLowerCase()
+}
+
+function getAuthRedirectUrl() {
+  const configuredRedirectUrl = import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined
+
+  if (configuredRedirectUrl?.trim()) {
+    return configuredRedirectUrl.trim()
+  }
+
+  if (typeof window !== 'undefined') {
+    return window.location.origin
+  }
+
+  return undefined
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -67,7 +90,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: normaliseEmail(email),
       password
     })
 
@@ -82,11 +105,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normaliseEmail(email),
       password,
       options: {
+        emailRedirectTo: getAuthRedirectUrl(),
         data: {
-          display_name: displayName ?? ''
+          display_name: displayName?.trim() ?? ''
         }
       }
     })
@@ -97,6 +121,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     return {
       needsEmailConfirmation: !data.session
+    }
+  }
+
+  async function resendEmailConfirmation({ email }: EmailInput) {
+    if (!supabase) {
+      throw new Error('Supabase is not configured.')
+    }
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: normaliseEmail(email),
+      options: {
+        emailRedirectTo: getAuthRedirectUrl()
+      }
+    })
+
+    if (error) {
+      throw error
     }
   }
 
@@ -118,6 +160,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isConfigured: isSupabaseConfigured,
       signInWithPassword,
       signUpWithPassword,
+      resendEmailConfirmation,
       signOut
     }),
     [loading, session]

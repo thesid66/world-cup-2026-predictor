@@ -2,7 +2,7 @@ import { useState, type MouseEvent } from 'react'
 import type { Fixture, Team } from '../../types/tournament'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
-import { formatNepalFixtureDateTime } from '../../utils/fixtureTime'
+import { formatLocalFixtureDateTime } from '../../utils/fixtureTime'
 import { canFetchSportScoreMatchData } from '../../services/sportScore'
 import { RealMatchModal } from '../matches/RealMatchModal'
 import { TeamFlag } from '../ui/TeamFlag'
@@ -205,7 +205,7 @@ export function MatchScoreCard({
 
         <div className="relative mt-8 grid gap-3 border-t border-white/10 pt-8 sm:mt-6 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:pt-5">
           <span className="absolute left-3 right-3 top-0 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-center text-[9px] font-black uppercase tracking-[0.12em] text-yellow-200 shadow-lg sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:whitespace-nowrap sm:text-[10px] sm:tracking-[0.18em]">
-            {formatNepalFixtureDateTime(fixture)} NPT
+            {formatLocalFixtureDateTime(fixture)}
           </span>
 
           <p className="text-xs font-bold text-slate-500">

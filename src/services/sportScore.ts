@@ -416,7 +416,17 @@ function toOptionalNumber(value: unknown): number | null | undefined {
 }
 
 function readIncidentText(incident: Record<string, unknown>, keys: string[]) {
-  return readTextValue(readFirstValue(incident, keys)) || undefined
+  for (const key of keys) {
+    if (!(key in incident)) continue
+
+    const text = readTextValue(incident[key])
+
+    if (text) {
+      return text
+    }
+  }
+
+  return undefined
 }
 
 function readIncidentScore(incident: Record<string, unknown>) {

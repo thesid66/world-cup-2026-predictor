@@ -21,7 +21,7 @@ export function RoundOf32Bracket() {
   return (
     <section
       id="knockout"
-      className="mt-6 scroll-mt-6 rounded-3xl border border-white/10 bg-white/8 p-5 shadow-xl backdrop-blur-xl"
+      className="mt-6 scroll-mt-6 rounded-4xl border border-white/10 bg-white/8 p-4 shadow-2xl backdrop-blur-xl sm:p-5"
     >
       <div className="mb-5 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
         <div>
@@ -52,7 +52,7 @@ export function RoundOf32Bracket() {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
         {matches.map((match) => (
           <KnockoutMatchCard key={match.id} match={match} />
         ))}

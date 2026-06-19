@@ -17,6 +17,16 @@ function isFixtureCompleted(
   return typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
 }
 
+function hasFixtureStarted(fixture: Fixture) {
+  const kickoffDate = getFixtureKickoffDate(fixture)
+
+  if (!(kickoffDate instanceof Date)) {
+    return false
+  }
+
+  return kickoffDate.getTime() <= Date.now()
+}
+
 function hasUsableActualScore(matchData?: RealMatchData) {
   return typeof matchData?.score.home === 'number' && typeof matchData.score.away === 'number'
 }
@@ -98,6 +108,7 @@ export function GroupStageSection() {
     let loadedCount = 0
     let unavailableCount = 0
     let skippedCount = 0
+    let futureCount = 0
 
     for (const fixture of groupStageFixtures) {
       const latestScores = usePredictionStore.getState().scores
@@ -105,7 +116,15 @@ export function GroupStageSection() {
       if (isFixtureCompleted(fixture, latestScores)) {
         skippedCount += 1
         setActualScoreLoadSummary(
-          `Loading actual scores... ${loadedCount} loaded · ${skippedCount} skipped · ${unavailableCount} unavailable`
+          `Loading actual scores... ${loadedCount} loaded · ${skippedCount} skipped · ${futureCount} future · ${unavailableCount} unavailable`
+        )
+        continue
+      }
+
+      if (!hasFixtureStarted(fixture)) {
+        futureCount += 1
+        setActualScoreLoadSummary(
+          `Loading actual scores... ${loadedCount} loaded · ${skippedCount} skipped · ${futureCount} future · ${unavailableCount} unavailable`
         )
         continue
       }
@@ -116,7 +135,7 @@ export function GroupStageSection() {
       }
 
       setActualScoreLoadSummary(
-        `Loading actual scores... ${loadedCount} loaded · ${skippedCount} skipped · ${unavailableCount} unavailable · checking match ${fixture.matchNumber}`
+        `Loading actual scores... ${loadedCount} loaded · ${skippedCount} skipped · ${futureCount} future · ${unavailableCount} unavailable · checking match ${fixture.matchNumber}`
       )
 
       try {
@@ -151,7 +170,7 @@ export function GroupStageSection() {
 
       loadedCount += 1
       setActualScoreLoadSummary(
-        `Loading actual scores... ${loadedCount} loaded · ${skippedCount} skipped · ${unavailableCount} unavailable`
+        `Loading actual scores... ${loadedCount} loaded · ${skippedCount} skipped · ${futureCount} future · ${unavailableCount} unavailable`
       )
     }
 
@@ -159,6 +178,10 @@ export function GroupStageSection() {
 
     if (skippedCount > 0) {
       summaryParts.push(`${skippedCount} skipped`)
+    }
+
+    if (futureCount > 0) {
+      summaryParts.push(`${futureCount} future`)
     }
 
     if (unavailableCount > 0) {

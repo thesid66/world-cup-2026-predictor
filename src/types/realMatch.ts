@@ -14,6 +14,10 @@ export type RealMatchTeam = {
   id?: number | string
   name: string
   logo?: string
+  color?: string
+  alternateColor?: string
+  record?: string
+  form?: string
 }
 
 export type RealMatchStatistic = {
@@ -31,6 +35,7 @@ export type RealMatchTeamStatistics = {
 export type RealMatchEvent = {
   elapsed?: number | null
   extra?: number | null
+  timeLabel?: string
   teamName?: string
   teamLogo?: string
   playerName?: string
@@ -40,6 +45,16 @@ export type RealMatchEvent = {
   detail?: string
   scoreDisplay?: string
   displayText?: string
+}
+
+export type RealMatchCommentary = {
+  id?: string | number
+  elapsed?: number | null
+  timeLabel?: string
+  teamName?: string
+  playerName?: string
+  type?: string
+  text: string
 }
 
 export type RealMatchLineupPlayer = {
@@ -62,6 +77,11 @@ export type RealMatchLineups = {
   awaySubs: RealMatchLineupPlayer[]
 }
 
+export type RealMatchLink = {
+  text: string
+  href: string
+}
+
 export type RealMatchData = {
   provider: 'api-football' | 'espn'
   apiFixtureId: number | string
@@ -72,5 +92,11 @@ export type RealMatchData = {
   score: RealMatchScore
   statistics: RealMatchTeamStatistics[]
   events: RealMatchEvent[]
+  commentary?: RealMatchCommentary[]
   lineups?: RealMatchLineups
+  venue?: string
+  venueCity?: string
+  broadcasts?: string[]
+  headline?: string
+  links?: RealMatchLink[]
 }

@@ -3,7 +3,7 @@ import type { Fixture, Team } from '../../types/tournament'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import { formatLocalFixtureDateTime, getFixtureKickoffDate } from '../../utils/fixtureTime'
-import { canFetchSportScoreMatchData } from '../../services/sportScore'
+import { canFetchEspnWorldCupMatchData } from '../../services/espnWorldCup'
 import { RealMatchModal } from '../matches/RealMatchModal'
 import { TeamFlag } from '../ui/TeamFlag'
 
@@ -48,17 +48,9 @@ function formatCountdownTime(milliseconds: number) {
   const minutes = Math.floor((totalSeconds % 3600) / 60)
   const seconds = totalSeconds % 60
 
-  if (days > 0) {
-    return `${days}d ${hours}h ${minutes}m`
-  }
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m ${seconds}s`
-  }
-
-  if (minutes > 0) {
-    return `${minutes}m ${seconds}s`
-  }
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
+  if (minutes > 0) return `${minutes}m ${seconds}s`
 
   return `${seconds}s`
 }
@@ -66,15 +58,11 @@ function formatCountdownTime(milliseconds: number) {
 function getCountdownLabel(fixture: Fixture, now: number) {
   const kickoffDate = getFixtureKickoffDate(fixture)
 
-  if (!kickoffDate) {
-    return null
-  }
+  if (!kickoffDate) return null
 
   const millisecondsToKickoff = kickoffDate.getTime() - now
 
-  if (millisecondsToKickoff <= 0) {
-    return 'Kickoff reached'
-  }
+  if (millisecondsToKickoff <= 0) return 'Kickoff reached'
 
   return `Kickoff in ${formatCountdownTime(millisecondsToKickoff)}`
 }
@@ -100,22 +88,20 @@ export function MatchScoreCard({
   const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
 
   const isCompleted = typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
-  const hasSportScoreData = canFetchSportScoreMatchData(fixture)
-  const isLoadRealDataDisabled = !hasSportScoreData || realMatchLoading || copyingRealData
+  const hasEspnData = canFetchEspnWorldCupMatchData(fixture)
+  const isLoadRealDataDisabled = !hasEspnData || realMatchLoading || copyingRealData
   const countdownLabel = showCountdown ? getCountdownLabel(fixture, currentTime) : null
 
   const actualScoreLabel = realMatch
     ? realMatch.score.display
-    : hasSportScoreData
+    : hasEspnData
       ? realMatchLoading
         ? 'Loading...'
         : 'Not loaded'
       : 'Not linked'
 
   useEffect(() => {
-    if (!showCountdown) {
-      return
-    }
+    if (!showCountdown) return
 
     const timer = window.setInterval(() => {
       setCurrentTime(Date.now())
@@ -131,9 +117,7 @@ export function MatchScoreCard({
   async function handleLoadRealData(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation()
 
-    if (!hasSportScoreData || copyingRealData) {
-      return
-    }
+    if (!hasEspnData || copyingRealData) return
 
     setCopyingRealData(true)
     setLoadRealDataStatus('idle')
@@ -167,9 +151,7 @@ export function MatchScoreCard({
         tabIndex={0}
         onClick={() => setModalOpen(true)}
         onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            setModalOpen(true)
-          }
+          if (event.key === 'Enter') setModalOpen(true)
         }}
         className={`group scroll-mt-24 cursor-pointer overflow-hidden rounded-2xl border p-3 shadow-lg transition hover:-translate-y-0.5 sm:scroll-mt-28 sm:p-4 ${
           highlighted
@@ -287,7 +269,7 @@ export function MatchScoreCard({
             >
               {copyingRealData || realMatchLoading
                 ? 'Loading real data...'
-                : hasSportScoreData
+                : hasEspnData
                   ? 'Load real data'
                   : 'Real data unavailable'}
             </button>
@@ -312,7 +294,7 @@ export function MatchScoreCard({
           </div>
 
           <p className="text-center text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 sm:text-right sm:text-xs sm:tracking-[0.2em]">
-            Click for SportScore data
+            Click for ESPN match data
           </p>
         </div>
       </article>

@@ -8,7 +8,8 @@ import type {
   RealMatchCommentary,
   RealMatchEvent,
   RealMatchLineupPlayer,
-  RealMatchStatistic
+  RealMatchStatistic,
+  RealMatchStatus
 } from '../../types/realMatch'
 import type { Fixture, Team } from '../../types/tournament'
 import { TeamFlag } from '../ui/TeamFlag'
@@ -76,6 +77,56 @@ function normaliseHexColor(value?: string, fallback = '#38bdf8') {
   }
 
   return fallback
+}
+
+function normalizeStatusText(status?: RealMatchStatus) {
+  return `${status?.short ?? ''} ${status?.long ?? ''}`.toLowerCase()
+}
+
+function isFullTimeStatus(status?: RealMatchStatus) {
+  const text = normalizeStatusText(status)
+  return text.includes('ft') || text.includes('full time') || text.includes('final')
+}
+
+function isLiveStatus(status?: RealMatchStatus) {
+  if (!status || isFullTimeStatus(status)) return false
+  const text = normalizeStatusText(status)
+  return text.includes('live') || text.includes('half') || text.includes('progress') || typeof status.elapsed === 'number'
+}
+
+function getStatusLabel(status?: RealMatchStatus) {
+  if (!status) return null
+
+  if (isLiveStatus(status) && typeof status.elapsed === 'number') {
+    const shortLabel = status.short && !/^live$/i.test(status.short) ? status.short : null
+    return shortLabel || `LIVE ${status.elapsed}'`
+  }
+
+  return status.short || status.long || null
+}
+
+function getStatusDetail(status?: RealMatchStatus) {
+  if (!status) return null
+
+  const label = getStatusLabel(status)
+  const detail = status.long && status.long !== label ? status.long : null
+  const elapsed = typeof status.elapsed === 'number' && !String(label ?? '').includes(`${status.elapsed}`)
+    ? `${status.elapsed}'`
+    : null
+
+  return [detail, elapsed].filter(Boolean).join(' · ') || null
+}
+
+function getStatusPillClass(status?: RealMatchStatus) {
+  if (isLiveStatus(status)) {
+    return 'border-red-300/30 bg-red-400/15 text-red-100 shadow-red-950/20'
+  }
+
+  if (isFullTimeStatus(status)) {
+    return 'border-emerald-300/30 bg-emerald-300/15 text-emerald-100 shadow-emerald-950/20'
+  }
+
+  return 'border-sky-300/25 bg-sky-300/10 text-sky-100 shadow-sky-950/20'
 }
 
 function parseStatNumber(value: string | number | null | undefined) {
@@ -557,6 +608,9 @@ export function RealMatchModal({
   const homeScorers = getGoalScorersForTeam(matchData?.events ?? [], homeDisplayName)
   const awayScorers = getGoalScorersForTeam(matchData?.events ?? [], awayDisplayName)
   const hasTimelineContent = Boolean(matchData?.events.length || matchData?.commentary?.length)
+  const statusLabel = getStatusLabel(matchData?.status)
+  const statusDetail = getStatusDetail(matchData?.status)
+  const statusPillClass = getStatusPillClass(matchData?.status)
 
   async function handleLoadRealData() {
     if (!hasEspnData || copyingRealData) return
@@ -600,10 +654,18 @@ export function RealMatchModal({
               <p className="text-xs font-black uppercase tracking-[0.3em] text-yellow-300">
                 ESPN match data
               </p>
-              <h2 className="mt-2 text-2xl font-black text-white">Match {fixture.matchNumber}</h2>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <h2 className="text-2xl font-black text-white">Match {fixture.matchNumber}</h2>
+                {statusLabel && (
+                  <span className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] shadow-lg ${statusPillClass}`}>
+                    {statusLabel}
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-sm font-bold text-slate-500">
                 {matchData?.venue ?? fixture.venue}, {matchData?.venueCity || fixture.city}
               </p>
+              {statusDetail && <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-slate-400">{statusDetail}</p>}
               {matchData?.broadcasts?.length ? (
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                   Watch: {matchData.broadcasts.slice(0, 4).join(' · ')}
@@ -697,11 +759,16 @@ export function RealMatchModal({
                 <p className="w-full text-center text-[9px] font-black uppercase tracking-[0.14em] text-yellow-200 sm:text-xs sm:tracking-[0.2em]">
                   Actual
                 </p>
-                <p className="mt-1 w-full whitespace-nowrap text-center text-2xl font-black text-white sm:text-4xl">
+                {statusLabel && (
+                  <p className={`mx-auto mt-2 w-fit rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] shadow-lg ${statusPillClass}`}>
+                    {statusLabel}
+                  </p>
+                )}
+                <p className="mt-2 w-full whitespace-nowrap text-center text-2xl font-black text-white sm:text-4xl">
                   {matchData?.score.display ?? '- - -'}
                 </p>
-                <p className="mx-auto mt-1 w-full max-w-[88px] truncate text-center text-[10px] font-bold text-slate-400 sm:max-w-none sm:text-xs">
-                  {matchData?.status.long ?? 'Not loaded'}
+                <p className="mx-auto mt-1 w-full max-w-[88px] text-center text-[10px] font-bold leading-4 text-slate-400 sm:max-w-none sm:text-xs">
+                  {statusDetail || matchData?.status.long || 'Not loaded'}
                 </p>
               </div>
 

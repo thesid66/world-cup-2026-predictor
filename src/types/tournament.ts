@@ -51,6 +51,8 @@ export type MatchPrediction = {
   score: PredictionScore
 }
 
+export type DirectQualificationStatus = 'qualified' | 'pending'
+
 export type GroupTableRow = {
   teamId: string
   teamName: string
@@ -64,6 +66,7 @@ export type GroupTableRow = {
   goalsAgainst: number
   goalDifference: number
   points: number
+  directQualificationStatus?: DirectQualificationStatus
 }
 export type ThirdPlaceTableRow = GroupTableRow & {
   group: GroupCode

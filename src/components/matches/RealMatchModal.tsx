@@ -31,6 +31,11 @@ type TimelineEventStyle = {
   teamBadgeClass: string
 }
 
+type GoalScorerSummary = {
+  playerName: string
+  timeLabel: string
+}
+
 const featuredStats = [
   'Ball Possession',
   'Total Shots',
@@ -43,6 +48,10 @@ const featuredStats = [
 
 function normalizeStatLabel(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function normalizeTeamText(value?: string) {
+  return String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
 function getStatValue(stats: RealMatchStatistic[], type: string) {
@@ -198,6 +207,42 @@ function getTimelineMetaParts(event: RealMatchEvent) {
   return parts
 }
 
+function getGoalScorersForTeam(events: RealMatchEvent[], teamName?: string): GoalScorerSummary[] {
+  const normalizedTeamName = normalizeTeamText(teamName)
+
+  if (!normalizedTeamName) {
+    return []
+  }
+
+  return events
+    .filter(isTimelineGoal)
+    .filter((event) => normalizeTeamText(event.teamName) === normalizedTeamName)
+    .map((event) => ({
+      playerName: getTimelinePrimaryText(event) || 'Unknown scorer',
+      timeLabel: getTimelineTimeLabel(event)
+    }))
+}
+
+function renderGoalScorers(scorers: GoalScorerSummary[], alignment: 'left' | 'right') {
+  if (!scorers.length) {
+    return null
+  }
+
+  return (
+    <div className={`mt-2 grid gap-1 ${alignment === 'right' ? 'justify-items-end' : ''}`}>
+      {scorers.map((scorer, index) => (
+        <p
+          key={`${scorer.playerName}-${scorer.timeLabel}-${index}`}
+          className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-2.5 py-1 text-[10px] font-black text-emerald-100 sm:text-xs"
+        >
+          <span>{scorer.playerName}</span>
+          <span className="ml-1 text-emerald-300">{scorer.timeLabel}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
 function renderTimelineIcon(style: TimelineEventStyle) {
   if (style.icon === 'red-card') {
     return (
@@ -336,6 +381,14 @@ export function RealMatchModal({
   const hasBenchSummary = Boolean(homeBenchPlayers.length || awayBenchPlayers.length)
   const hasSportScoreData = canFetchSportScoreMatchData(fixture)
   const isLoadRealDataDisabled = !hasSportScoreData || loading || copyingRealData
+  const homeScorers = getGoalScorersForTeam(
+    matchData?.events ?? [],
+    matchData?.homeTeam.name ?? homeTeam?.name
+  )
+  const awayScorers = getGoalScorersForTeam(
+    matchData?.events ?? [],
+    matchData?.awayTeam.name ?? awayTeam?.name
+  )
 
   async function handleLoadRealData() {
     if (!hasSportScoreData || copyingRealData) {
@@ -439,8 +492,8 @@ export function RealMatchModal({
 
         <div className="p-5">
           <section className="rounded-3xl border border-white/10 bg-white/8 p-5">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-4">
-              <div className="min-w-0 text-center sm:flex sm:items-center sm:gap-3 sm:text-left">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 sm:gap-4">
+              <div className="min-w-0 text-center sm:flex sm:items-start sm:gap-3 sm:text-left">
                 <div className="mb-2 flex justify-center sm:mb-0">
                   <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="md" />
                 </div>
@@ -452,6 +505,7 @@ export function RealMatchModal({
                   <p className="text-[10px] font-bold text-slate-500 sm:text-xs">
                     {homeTeam?.shortName}
                   </p>
+                  {renderGoalScorers(homeScorers, 'left')}
                 </div>
               </div>
 
@@ -469,7 +523,7 @@ export function RealMatchModal({
                 </p>
               </div>
 
-              <div className="min-w-0 text-center sm:flex sm:items-center sm:justify-end sm:gap-3 sm:text-right">
+              <div className="min-w-0 text-center sm:flex sm:items-start sm:justify-end sm:gap-3 sm:text-right">
                 <div className="mb-2 flex justify-center sm:order-2 sm:mb-0">
                   <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="md" />
                 </div>
@@ -481,6 +535,7 @@ export function RealMatchModal({
                   <p className="text-[10px] font-bold text-slate-500 sm:text-xs">
                     {awayTeam?.shortName}
                   </p>
+                  {renderGoalScorers(awayScorers, 'right')}
                 </div>
               </div>
             </div>

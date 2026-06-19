@@ -76,6 +76,6 @@ export const useRealMatchStore = create<RealMatchState>()(
         set({ matches: {}, loading: {}, errors: {} })
       }
     }),
-    { name: 'world-cup-2026-real-match-cache-v3' }
+    { name: 'world-cup-2026-real-match-cache-v4' }
   )
 )

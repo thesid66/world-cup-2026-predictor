@@ -30,10 +30,7 @@ export function GroupStandings({ groupCode }: GroupStandingsProps) {
   return (
     <div className="overflow-hidden rounded-[1.35rem] border border-white/10 bg-slate-950/55 shadow-xl sm:rounded-3xl">
       <div className="border-b border-white/10 bg-linear-to-r from-yellow-300/10 to-sky-300/10 p-4">
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-yellow-300 sm:text-xs sm:tracking-[0.25em]">
-          Live standings
-        </p>
-        <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
           <div>
             <h4 className="text-xl font-black text-white">Group {groupCode}</h4>
             <p className="mt-1 text-xs font-bold text-slate-400">
@@ -53,22 +50,6 @@ export function GroupStandings({ groupCode }: GroupStandingsProps) {
 
       <div className="p-3 sm:p-4">
         <GroupTable rows={tableRows} />
-        <div className="mt-4 grid gap-2 text-center sm:grid-cols-3">
-          <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-2 py-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-200">
-              1st - 2nd
-            </p>
-            <p className="mt-1 text-xs font-bold text-slate-300">Qualify</p>
-          </div>
-          <div className="rounded-xl border border-yellow-300/20 bg-yellow-300/10 px-2 py-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-yellow-200">3rd</p>
-            <p className="mt-1 text-xs font-bold text-slate-300">Best third</p>
-          </div>
-          <div className="rounded-xl border border-red-300/20 bg-red-300/10 px-2 py-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-red-200">4th</p>
-            <p className="mt-1 text-xs font-bold text-slate-300">Out</p>
-          </div>
-        </div>
       </div>
     </div>
   )

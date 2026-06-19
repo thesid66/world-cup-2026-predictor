@@ -51,7 +51,7 @@ export function DashboardPage() {
 
   return (
     <div className="grid gap-6">
-      <section id="dashboard" className="grid gap-5 lg:grid-cols-4">
+      <section id="dashboard" className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         <article className="rounded-3xl border border-white/10 bg-white/8 p-5 shadow-xl backdrop-blur-xl">
           <p className="text-sm font-bold text-slate-400">Teams loaded</p>
           <p className="mt-2 text-4xl font-black text-white">{teams.length}</p>
@@ -93,14 +93,12 @@ export function DashboardPage() {
         </div>
 
         {featuredFixture ? (
-          <div className="max-w-3xl">
-            <MatchScoreCard
-              fixture={featuredFixture}
-              homeTeam={featuredHomeTeam}
-              awayTeam={featuredAwayTeam}
-              highlighted={Boolean(liveFixture)}
-            />
-          </div>
+          <MatchScoreCard
+            fixture={featuredFixture}
+            homeTeam={featuredHomeTeam}
+            awayTeam={featuredAwayTeam}
+            highlighted={Boolean(liveFixture)}
+          />
         ) : (
           <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5 text-sm font-bold text-slate-300">
             No fixture is available to feature yet.

@@ -1,7 +1,9 @@
 import { teams } from '../data/teams'
 import type {
+  RealMatchCommentary,
   RealMatchData,
   RealMatchEvent,
+  RealMatchLineupPlayer,
   RealMatchLineups,
   RealMatchStatistic,
   RealMatchStatus,
@@ -10,7 +12,7 @@ import type {
 import type { Fixture, Team } from '../types/tournament'
 
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/$/, '')
-const ESPN_SCOREBOARD_PROXY_URL = `${SUPABASE_URL}/functions/v1/espn-worldcup-scoreboard`
+const ESPN_PROXY_URL = `${SUPABASE_URL}/functions/v1/espn-worldcup-scoreboard`
 const REQUIRED_LEAGUE_SLUG = 'fifa.world'
 const REQUIRED_SEASON_YEAR = 2026
 const TOURNAMENT_UTC_OFFSET_MS = 4 * 60 * 60 * 1000
@@ -46,17 +48,19 @@ const comparableTeamAliases: Record<string, string> = {
   hti: 'haiti'
 }
 
-type EspnScoreboardProxyResponse =
+type EspnProxyResponse<TData, TKind extends 'scoreboard' | 'summary'> =
   | {
       available: true
       source: 'espn'
+      kind?: TKind
       fetchedAt: string
-      data: EspnScoreboardPayload
+      data: TData
     }
   | {
       available: false
       status?: number
       source?: 'espn'
+      kind?: TKind
       error?: unknown
     }
 
@@ -65,11 +69,35 @@ type EspnScoreboardPayload = {
   events?: EspnEvent[]
 }
 
+type EspnSummaryPayload = {
+  header?: {
+    competitions?: EspnCompetition[]
+  }
+  boxscore?: EspnBoxscore
+  lineups?: unknown[]
+  rosters?: unknown[]
+  commentary?: EspnCommentaryItem[]
+  plays?: EspnCommentaryItem[]
+}
+
+type EspnBoxscore = {
+  lineups?: unknown[]
+  rosters?: unknown[]
+  teams?: unknown[]
+  players?: unknown[]
+}
+
 type EspnLeague = {
   slug?: string
   season?: {
     year?: number | string
   }
+}
+
+type EspnLink = {
+  href?: string
+  text?: string
+  shortText?: string
 }
 
 type EspnEvent = {
@@ -83,12 +111,14 @@ type EspnEvent = {
     slug?: string
   }
   competitions?: EspnCompetition[]
+  links?: EspnLink[]
 }
 
 type EspnCompetition = {
   id?: string
   date?: string
   startDate?: string
+  attendance?: number
   altGameNote?: string
   status?: EspnCompetitionStatus
   venue?: {
@@ -101,6 +131,19 @@ type EspnCompetition = {
   }
   competitors?: EspnCompetitor[]
   details?: EspnCompetitionDetail[]
+  broadcasts?: Array<{
+    names?: string[]
+  }>
+  geoBroadcasts?: Array<{
+    media?: {
+      shortName?: string
+    }
+  }>
+  headlines?: Array<{
+    description?: string
+    shortLinkText?: string
+  }>
+  links?: EspnLink[]
 }
 
 type EspnCompetitionStatus = {
@@ -121,6 +164,12 @@ type EspnCompetitor = {
   id?: string
   homeAway?: 'home' | 'away' | string
   score?: string
+  form?: string
+  records?: Array<{
+    summary?: string
+    type?: string
+    name?: string
+  }>
   team?: {
     id?: string
     abbreviation?: string
@@ -129,6 +178,8 @@ type EspnCompetitor = {
     name?: string
     location?: string
     logo?: string
+    color?: string
+    alternateColor?: string
   }
   statistics?: Array<{
     name?: string
@@ -155,6 +206,7 @@ type EspnCompetitionDetail = {
   redCard?: boolean
   penaltyKick?: boolean
   ownGoal?: boolean
+  shootout?: boolean
   athletesInvolved?: Array<{
     displayName?: string
     fullName?: string
@@ -163,6 +215,65 @@ type EspnCompetitionDetail = {
       id?: string
     }
   }>
+}
+
+type EspnCommentaryItem = {
+  id?: string | number
+  type?: string
+  text?: string
+  shortText?: string
+  displayValue?: string
+  time?: {
+    displayValue?: string
+  }
+  clock?: {
+    displayValue?: string
+  }
+  team?: {
+    id?: string
+    displayName?: string
+  }
+  athletesInvolved?: Array<{
+    displayName?: string
+    fullName?: string
+    shortName?: string
+  }>
+  participants?: Array<{
+    athlete?: {
+      displayName?: string
+      fullName?: string
+      shortName?: string
+    }
+  }>
+}
+
+type JsonRecord = Record<string, unknown>
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function readRecord(value: unknown, key: string): JsonRecord | undefined {
+  if (!isRecord(value)) return undefined
+  const nextValue = value[key]
+  return isRecord(nextValue) ? nextValue : undefined
+}
+
+function readArray(value: unknown, key: string): unknown[] {
+  if (!isRecord(value)) return []
+  const nextValue = value[key]
+  return Array.isArray(nextValue) ? nextValue : []
+}
+
+function readString(value: unknown, key: string) {
+  if (!isRecord(value)) return ''
+  const nextValue = value[key]
+  return typeof nextValue === 'string' || typeof nextValue === 'number' ? String(nextValue).trim() : ''
+}
+
+function readBoolean(value: unknown, key: string) {
+  if (!isRecord(value)) return false
+  return Boolean(value[key])
 }
 
 function getTeam(teamId: string) {
@@ -386,21 +497,18 @@ function normalizeEspnStatistics(competition: EspnCompetition, reverseTeamOrder:
   const home = getHomeCompetitor(competition)
   const away = getAwayCompetitor(competition)
 
-  const homeStats = normalizeCompetitorStatistics(home)
-  const awayStats = normalizeCompetitorStatistics(away)
-
   const stats = [
     {
       teamId: home?.id ?? home?.team?.id,
       teamName: home?.team?.displayName || home?.team?.name || 'Home',
       teamLogo: home?.team?.logo,
-      statistics: homeStats
+      statistics: normalizeCompetitorStatistics(home)
     },
     {
       teamId: away?.id ?? away?.team?.id,
       teamName: away?.team?.displayName || away?.team?.name || 'Away',
       teamLogo: away?.team?.logo,
-      statistics: awayStats
+      statistics: normalizeCompetitorStatistics(away)
     }
   ].filter((team) => team.statistics.length)
 
@@ -436,27 +544,269 @@ function normalizeEspnEvents(competition: EspnCompetition): RealMatchEvent[] {
       const elapsed = parseElapsedFromClock(displayClock)
       const detailParts = [
         detail.penaltyKick ? 'Penalty' : '',
-        detail.ownGoal ? 'Own goal' : ''
+        detail.ownGoal ? 'Own goal' : '',
+        detail.shootout ? 'Shootout' : ''
       ].filter(Boolean)
+      const playerName = player?.displayName || player?.fullName || player?.shortName
 
       return {
         elapsed,
+        timeLabel: displayClock,
         teamName: team?.team?.displayName || team?.team?.name,
         teamLogo: team?.team?.logo,
-        playerName: player?.displayName || player?.fullName || player?.shortName,
+        playerName,
         type: eventType,
         detail: detailParts.join(' · '),
-        displayText: player?.displayName || player?.fullName || player?.shortName
+        displayText: playerName
       }
     })
     .filter((event) => event.type || event.playerName || event.detail)
 }
 
-function buildEmptyLineups(): RealMatchLineups | undefined {
-  return undefined
+function readLineupPlayerName(value: unknown) {
+  if (!isRecord(value)) return ''
+
+  const athlete = readRecord(value, 'athlete') ?? readRecord(value, 'player') ?? readRecord(value, 'person')
+
+  return (
+    readString(athlete, 'displayName') ||
+    readString(athlete, 'fullName') ||
+    readString(athlete, 'shortName') ||
+    readString(value, 'displayName') ||
+    readString(value, 'fullName') ||
+    readString(value, 'name')
+  )
 }
 
-function normalizeEspnMatchData(event: EspnEvent, fixture: Fixture, fetchedAt: string): RealMatchData {
+function readLineupPlayerPosition(value: unknown) {
+  if (!isRecord(value)) return undefined
+
+  const athlete = readRecord(value, 'athlete') ?? readRecord(value, 'player')
+  const position = readRecord(value, 'position') ?? readRecord(athlete, 'position')
+  const displayValue =
+    readString(position, 'abbreviation') ||
+    readString(position, 'displayName') ||
+    readString(position, 'name') ||
+    readString(value, 'position')
+
+  return displayValue || undefined
+}
+
+function normalizeLineupPlayers(values: unknown[]): RealMatchLineupPlayer[] {
+  return values
+    .map((value) => {
+      if (!isRecord(value)) return undefined
+
+      const name = readLineupPlayerName(value)
+
+      if (!name) return undefined
+
+      return {
+        name,
+        number:
+          readString(value, 'jersey') ||
+          readString(value, 'jerseyNumber') ||
+          readString(value, 'shirtNumber') ||
+          readString(readRecord(value, 'athlete'), 'jersey') ||
+          null,
+        position: readLineupPlayerPosition(value),
+        captain: readBoolean(value, 'captain'),
+        rating: readString(value, 'rating') || null
+      }
+    })
+    .filter((player): player is RealMatchLineupPlayer => Boolean(player))
+}
+
+function getLineupTeamId(value: unknown) {
+  const team = readRecord(value, 'team')
+  return readString(team, 'id') || readString(value, 'teamId')
+}
+
+function getLineupFormation(value: unknown) {
+  return readString(value, 'formation') || readString(value, 'formationDisplay') || null
+}
+
+function getLineupCoach(value: unknown) {
+  const coach = readRecord(value, 'coach') ?? readRecord(value, 'manager')
+  return readString(coach, 'displayName') || readString(coach, 'name') || null
+}
+
+function getLineupPlayersForKeys(value: unknown, keys: string[]) {
+  return keys.flatMap((key) => readArray(value, key))
+}
+
+function splitGenericPlayers(players: unknown[]) {
+  const starters = players.filter((player) => readBoolean(player, 'starter') || readBoolean(player, 'starting'))
+  const substitutes = players.filter((player) => readBoolean(player, 'substitute') || readBoolean(player, 'bench'))
+
+  if (starters.length || substitutes.length) {
+    return { starters, substitutes }
+  }
+
+  return { starters: players, substitutes: [] }
+}
+
+function normalizeLineupContainer(value: unknown) {
+  const starters = getLineupPlayersForKeys(value, ['starters', 'startingXI', 'startingXi', 'lineup', 'startingLineup'])
+  const substitutes = getLineupPlayersForKeys(value, ['substitutes', 'subs', 'bench'])
+
+  if (starters.length || substitutes.length) {
+    return {
+      teamId: getLineupTeamId(value),
+      formation: getLineupFormation(value),
+      coach: getLineupCoach(value),
+      starters: normalizeLineupPlayers(starters),
+      substitutes: normalizeLineupPlayers(substitutes)
+    }
+  }
+
+  const genericPlayers = getLineupPlayersForKeys(value, ['players'])
+
+  if (!genericPlayers.length) return undefined
+
+  const splitPlayers = splitGenericPlayers(genericPlayers)
+
+  return {
+    teamId: getLineupTeamId(value),
+    formation: getLineupFormation(value),
+    coach: getLineupCoach(value),
+    starters: normalizeLineupPlayers(splitPlayers.starters),
+    substitutes: normalizeLineupPlayers(splitPlayers.substitutes)
+  }
+}
+
+function getSummaryLineupContainers(summary?: EspnSummaryPayload) {
+  if (!summary) return []
+
+  return [
+    ...readArray(summary, 'lineups'),
+    ...readArray(summary, 'rosters'),
+    ...readArray(summary.boxscore, 'lineups'),
+    ...readArray(summary.boxscore, 'rosters')
+  ]
+    .map(normalizeLineupContainer)
+    .filter((lineup): lineup is NonNullable<ReturnType<typeof normalizeLineupContainer>> => Boolean(lineup))
+}
+
+function findLineupForTeam(
+  lineups: ReturnType<typeof getSummaryLineupContainers>,
+  competitor: EspnCompetitor | undefined
+) {
+  const teamId = competitor?.id ?? competitor?.team?.id
+
+  if (!teamId) return undefined
+
+  return lineups.find((lineup) => lineup.teamId === teamId)
+}
+
+function normalizeEspnLineups(
+  summary: EspnSummaryPayload | undefined,
+  competition: EspnCompetition,
+  reverseTeamOrder: boolean
+): RealMatchLineups | undefined {
+  const lineupContainers = getSummaryLineupContainers(summary)
+
+  if (!lineupContainers.length) return undefined
+
+  const home = getHomeCompetitor(competition)
+  const away = getAwayCompetitor(competition)
+  const homeLineup = findLineupForTeam(lineupContainers, home)
+  const awayLineup = findLineupForTeam(lineupContainers, away)
+  const lineups = {
+    confirmed: Boolean(homeLineup || awayLineup),
+    homeFormation: homeLineup?.formation ?? null,
+    awayFormation: awayLineup?.formation ?? null,
+    homeCoach: homeLineup?.coach ?? null,
+    awayCoach: awayLineup?.coach ?? null,
+    homeXi: homeLineup?.starters ?? [],
+    awayXi: awayLineup?.starters ?? [],
+    homeSubs: homeLineup?.substitutes ?? [],
+    awaySubs: awayLineup?.substitutes ?? []
+  }
+
+  if (!reverseTeamOrder) return lineups
+
+  return {
+    confirmed: lineups.confirmed,
+    homeFormation: lineups.awayFormation,
+    awayFormation: lineups.homeFormation,
+    homeCoach: lineups.awayCoach,
+    awayCoach: lineups.homeCoach,
+    homeXi: lineups.awayXi,
+    awayXi: lineups.homeXi,
+    homeSubs: lineups.awaySubs,
+    awaySubs: lineups.homeSubs
+  }
+}
+
+function normalizeEspnCommentary(
+  summary: EspnSummaryPayload | undefined,
+  competition: EspnCompetition
+): RealMatchCommentary[] {
+  if (!summary) return []
+
+  const sourceItems = [...(summary.commentary ?? []), ...(summary.plays ?? [])]
+  const seen = new Set<string>()
+
+  return sourceItems
+    .map((item) => {
+      const text = item.text || item.shortText || item.displayValue || ''
+
+      if (!text) return undefined
+
+      const player = item.athletesInvolved?.[0] ?? item.participants?.[0]?.athlete
+      const team = getCompetitorByTeamId(competition, item.team?.id)
+      const timeLabel = item.time?.displayValue || item.clock?.displayValue
+      const elapsed = parseElapsedFromClock(timeLabel)
+      const id = item.id ?? `${timeLabel ?? ''}-${text}`
+      const key = String(id)
+
+      if (seen.has(key)) return undefined
+      seen.add(key)
+
+      return {
+        id,
+        elapsed,
+        timeLabel,
+        teamName: item.team?.displayName || team?.team?.displayName || team?.team?.name,
+        playerName: player?.displayName || player?.fullName || player?.shortName,
+        type: item.type,
+        text
+      }
+    })
+    .filter((item): item is RealMatchCommentary => Boolean(item))
+}
+
+function getRecordSummary(competitor: EspnCompetitor | undefined) {
+  return competitor?.records?.find((record) => record.type === 'total')?.summary || competitor?.records?.[0]?.summary
+}
+
+function normalizeBroadcasts(competition: EspnCompetition) {
+  const names = [
+    ...(competition.broadcasts ?? []).flatMap((broadcast) => broadcast.names ?? []),
+    ...(competition.geoBroadcasts ?? []).map((broadcast) => broadcast.media?.shortName ?? '')
+  ]
+    .map((value) => value.trim())
+    .filter(Boolean)
+
+  return Array.from(new Set(names))
+}
+
+function normalizeLinks(event: EspnEvent, competition: EspnCompetition) {
+  return [...(event.links ?? []), ...(competition.links ?? [])]
+    .map((link) => ({
+      text: link.shortText || link.text || 'Link',
+      href: link.href || ''
+    }))
+    .filter((link) => link.href)
+}
+
+function normalizeEspnMatchData(
+  event: EspnEvent,
+  fixture: Fixture,
+  fetchedAt: string,
+  summary?: EspnSummaryPayload
+): RealMatchData {
   const competition = getPrimaryCompetition(event)
 
   if (!competition) {
@@ -472,6 +822,9 @@ function normalizeEspnMatchData(event: EspnEvent, fixture: Fixture, fetchedAt: s
   const hasStarted = hasCompetitionStarted(competition.status)
   const homeScore = hasStarted ? parseScore(displayHome?.score) : null
   const awayScore = hasStarted ? parseScore(displayAway?.score) : null
+  const venueCity = [competition.venue?.address?.city, competition.venue?.address?.country]
+    .filter(Boolean)
+    .join(', ')
 
   return {
     provider: 'espn',
@@ -481,12 +834,20 @@ function normalizeEspnMatchData(event: EspnEvent, fixture: Fixture, fetchedAt: s
     homeTeam: {
       id: displayHome?.id ?? displayHome?.team?.id,
       name: displayHome?.team?.displayName || displayHome?.team?.name || getTeam(fixture.homeTeamId)?.name || 'Home',
-      logo: displayHome?.team?.logo
+      logo: displayHome?.team?.logo,
+      color: displayHome?.team?.color,
+      alternateColor: displayHome?.team?.alternateColor,
+      record: getRecordSummary(displayHome),
+      form: displayHome?.form
     },
     awayTeam: {
       id: displayAway?.id ?? displayAway?.team?.id,
       name: displayAway?.team?.displayName || displayAway?.team?.name || getTeam(fixture.awayTeamId)?.name || 'Away',
-      logo: displayAway?.team?.logo
+      logo: displayAway?.team?.logo,
+      color: displayAway?.team?.color,
+      alternateColor: displayAway?.team?.alternateColor,
+      record: getRecordSummary(displayAway),
+      form: displayAway?.form
     },
     score: {
       home: homeScore,
@@ -495,7 +856,13 @@ function normalizeEspnMatchData(event: EspnEvent, fixture: Fixture, fetchedAt: s
     },
     statistics: normalizeEspnStatistics(competition, reverseTeamOrder),
     events: normalizeEspnEvents(competition),
-    lineups: buildEmptyLineups()
+    commentary: normalizeEspnCommentary(summary, competition),
+    lineups: normalizeEspnLineups(summary, competition, reverseTeamOrder),
+    venue: competition.venue?.fullName || competition.venue?.displayName,
+    venueCity,
+    broadcasts: normalizeBroadcasts(competition),
+    headline: competition.headlines?.[0]?.shortLinkText || competition.headlines?.[0]?.description,
+    links: normalizeLinks(event, competition)
   }
 }
 
@@ -513,6 +880,19 @@ export function canFetchEspnWorldCupMatchData(fixture: Fixture) {
   return fixture.stage === 'group' && Boolean(fixture.homeTeamId && fixture.awayTeamId && fixture.date)
 }
 
+async function fetchEspnSummaryPayload(eventId: string | undefined): Promise<EspnSummaryPayload | undefined> {
+  if (!eventId) return undefined
+
+  const params = new URLSearchParams({ event: eventId })
+  const response = await fetch(`${ESPN_PROXY_URL}?${params.toString()}`)
+
+  if (!response.ok) return undefined
+
+  const payload = (await response.json()) as EspnProxyResponse<EspnSummaryPayload, 'summary'>
+
+  return payload.available ? payload.data : undefined
+}
+
 export async function fetchEspnWorldCupMatchDataForFixture(fixture: Fixture): Promise<RealMatchData> {
   if (!canFetchEspnWorldCupMatchData(fixture)) {
     throw new Error('ESPN World Cup data is not available for this fixture yet.')
@@ -523,13 +903,13 @@ export async function fetchEspnWorldCupMatchDataForFixture(fixture: Fixture): Pr
   }
 
   const params = new URLSearchParams({ dates: getEspnDateParam(fixture) })
-  const response = await fetch(`${ESPN_SCOREBOARD_PROXY_URL}?${params.toString()}`)
+  const response = await fetch(`${ESPN_PROXY_URL}?${params.toString()}`)
 
   if (!response.ok) {
     throw new Error(`ESPN World Cup request failed: ${response.status} ${response.statusText}`)
   }
 
-  const payload = (await response.json()) as EspnScoreboardProxyResponse
+  const payload = (await response.json()) as EspnProxyResponse<EspnScoreboardPayload, 'scoreboard'>
 
   if (!payload.available) {
     throw new Error(getProxyErrorMessage(payload.error))
@@ -545,5 +925,7 @@ export async function fetchEspnWorldCupMatchDataForFixture(fixture: Fixture): Pr
     throw new Error('ESPN World Cup data is not available for this fixture yet.')
   }
 
-  return normalizeEspnMatchData(event, fixture, payload.fetchedAt)
+  const summary = await fetchEspnSummaryPayload(event.id).catch(() => undefined)
+
+  return normalizeEspnMatchData(event, fixture, payload.fetchedAt, summary)
 }

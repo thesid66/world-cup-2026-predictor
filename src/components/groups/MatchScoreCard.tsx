@@ -144,6 +144,7 @@ export function MatchScoreCard({
   const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
 
   const isCompleted = typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
+  const savedScoreLabel = isCompleted ? `${score.homeScore} - ${score.awayScore}` : null
   const hasEspnData = canFetchEspnWorldCupMatchData(fixture)
   const isLoadRealDataDisabled = !hasEspnData || realMatchLoading || copyingRealData
   const countdownLabel = showCountdown ? getCountdownLabel(fixture, currentTime) : null
@@ -153,11 +154,15 @@ export function MatchScoreCard({
 
   const actualScoreLabel = realMatch
     ? realMatch.score.display
-    : hasEspnData
-      ? realMatchLoading
-        ? 'Loading...'
-        : 'Not loaded'
-      : 'Not linked'
+    : savedScoreLabel
+      ? savedScoreLabel
+      : hasEspnData
+        ? realMatchLoading
+          ? 'Loading...'
+          : 'Not loaded'
+        : 'Not linked'
+
+  const actualScoreDetail = statusDetail || (!realMatch && savedScoreLabel ? 'Saved score' : null)
 
   useEffect(() => {
     if (!showCountdown) return
@@ -308,7 +313,7 @@ export function MatchScoreCard({
                 </p>
               )}
               <p className="mt-1 text-sm font-black text-white">{actualScoreLabel}</p>
-              {statusDetail && <p className="mt-0.5 text-[10px] font-bold text-slate-400">{statusDetail}</p>}
+              {actualScoreDetail && <p className="mt-0.5 text-[10px] font-bold text-slate-400">{actualScoreDetail}</p>}
             </div>
           </div>
 
@@ -324,8 +329,8 @@ export function MatchScoreCard({
           </div>
         </div>
 
-        <div className="relative mt-8 grid gap-3 border-t border-white/10 pt-8 sm:mt-6 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:pt-5">
-          <span className="absolute left-2 right-2 top-0 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-center text-[8px] font-black uppercase tracking-[0.08em] text-yellow-200 shadow-lg sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:whitespace-nowrap sm:text-[10px] sm:tracking-[0.18em]">
+        <div className="mt-4 flex flex-col justify-between gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-end">
+          <span className="text-center text-xs font-black uppercase tracking-[0.16em] text-slate-500 sm:text-left sm:text-sm sm:tracking-[0.2em]">
             {formatLocalFixtureDateTime(fixture)}
           </span>
 

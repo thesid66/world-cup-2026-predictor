@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTournamentData } from '../../context/TournamentDataContext'
 import { canFetchSportScoreMatchData } from '../../services/sportScore'
 import { usePredictionStore } from '../../store/predictionStore'
@@ -7,8 +7,6 @@ import type { RealMatchData } from '../../types/realMatch'
 import type { Fixture, PredictionScore } from '../../types/tournament'
 import { getFixtureKickoffDate } from '../../utils/fixtureTime'
 import { MatchScoreCard } from './MatchScoreCard'
-
-const JUMP_BUTTON_AUTO_HIDE_MS = 7000
 
 function isFixtureCompleted(
   fixture: Fixture,
@@ -33,9 +31,7 @@ function buildActualScore(matchData: RealMatchData): PredictionScore {
 function sortFixturesByDateAndTime(a: Fixture, b: Fixture) {
   const dateCompare = a.date.localeCompare(b.date)
 
-  if (dateCompare !== 0) {
-    return dateCompare
-  }
+  if (dateCompare !== 0) return dateCompare
 
   const aSortTime = a.kickoffTimeSort ?? ''
   const bSortTime = b.kickoffTimeSort ?? ''
@@ -43,9 +39,7 @@ function sortFixturesByDateAndTime(a: Fixture, b: Fixture) {
   if (aSortTime && bSortTime) {
     const timeCompare = aSortTime.localeCompare(bSortTime)
 
-    if (timeCompare !== 0) {
-      return timeCompare
-    }
+    if (timeCompare !== 0) return timeCompare
   }
 
   return a.matchNumber - b.matchNumber
@@ -55,26 +49,11 @@ function getFixtureElementId(fixtureId: string) {
   return `fixture-${fixtureId}`
 }
 
-function isElementVisibleEnough(element: HTMLElement, minimumVisibleRatio = 0.45) {
-  const rect = element.getBoundingClientRect()
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight
-  const visibleHeight = Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0)
-
-  if (visibleHeight <= 0) {
-    return false
-  }
-
-  return visibleHeight / Math.max(rect.height, 1) >= minimumVisibleRatio
-}
-
 function getNextMatchFixture(fixtures: Fixture[]) {
   const now = Date.now()
 
   const datedFixtures = fixtures
-    .map((fixture) => ({
-      fixture,
-      kickoffDate: getFixtureKickoffDate(fixture)
-    }))
+    .map((fixture) => ({ fixture, kickoffDate: getFixtureKickoffDate(fixture) }))
     .filter(
       (entry): entry is { fixture: Fixture; kickoffDate: Date } =>
         entry.kickoffDate instanceof Date
@@ -89,7 +68,6 @@ function getNextMatchFixture(fixtures: Fixture[]) {
 
 export function GroupStageSection() {
   const [highlightedFixtureId, setHighlightedFixtureId] = useState<string | null>(null)
-  const [isJumpButtonVisible, setIsJumpButtonVisible] = useState(true)
   const [isLoadingActualScores, setIsLoadingActualScores] = useState(false)
   const [actualScoreLoadSummary, setActualScoreLoadSummary] = useState<string | null>(null)
 
@@ -112,9 +90,7 @@ export function GroupStageSection() {
   const hasSportScoreFixtures = groupStageFixtures.some(canFetchSportScoreMatchData)
 
   async function loadActualScores() {
-    if (isLoadingActualScores || !hasSportScoreFixtures) {
-      return
-    }
+    if (isLoadingActualScores || !hasSportScoreFixtures) return
 
     setIsLoadingActualScores(true)
     setActualScoreLoadSummary('Loading actual scores...')
@@ -136,9 +112,6 @@ export function GroupStageSection() {
         await fetchMatchData(fixture, true)
       } catch {
         unavailableCount += 1
-        setActualScoreLoadSummary(
-          `Loading actual scores... ${loadedCount} loaded · ${unavailableCount} unavailable`
-        )
         continue
       }
 
@@ -146,9 +119,6 @@ export function GroupStageSection() {
 
       if (!hasUsableActualScore(matchData)) {
         unavailableCount += 1
-        setActualScoreLoadSummary(
-          `Loading actual scores... ${loadedCount} loaded · ${unavailableCount} unavailable`
-        )
         continue
       }
 
@@ -179,101 +149,14 @@ export function GroupStageSection() {
     setIsLoadingActualScores(false)
   }
 
-  useEffect(() => {
-    if (!nextMatchFixture) {
-      return
-    }
-
-    setIsJumpButtonVisible(true)
-  }, [nextMatchFixture?.id])
-
-  useEffect(() => {
-    if (!nextMatchFixture || !isJumpButtonVisible) {
-      return
-    }
-
-    const autoHideTimer = window.setTimeout(() => {
-      setIsJumpButtonVisible(false)
-    }, JUMP_BUTTON_AUTO_HIDE_MS)
-
-    return () => {
-      window.clearTimeout(autoHideTimer)
-    }
-  }, [isJumpButtonVisible, nextMatchFixture?.id])
-
-  useEffect(() => {
-    if (!nextMatchFixture) {
-      return
-    }
-
-    const nextMatchElement = document.getElementById(getFixtureElementId(nextMatchFixture.id))
-
-    if (!nextMatchElement) {
-      return
-    }
-
-    const nextMatchTarget: HTMLElement = nextMatchElement
-
-    function updateJumpButtonFromElementPosition() {
-      setIsJumpButtonVisible(!isElementVisibleEnough(nextMatchTarget))
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const hasReachedNextMatch = entries.some(
-          (entry) => entry.isIntersecting && entry.intersectionRatio >= 0.45
-        )
-
-        setIsJumpButtonVisible(!hasReachedNextMatch)
-      },
-      {
-        threshold: [0, 0.15, 0.45, 0.6]
-      }
-    )
-
-    observer.observe(nextMatchTarget)
-
-    let scrollTimeout: number | undefined
-
-    function handleScrollOrResize() {
-      if (scrollTimeout) {
-        window.clearTimeout(scrollTimeout)
-      }
-
-      scrollTimeout = window.setTimeout(() => {
-        updateJumpButtonFromElementPosition()
-      }, 120)
-    }
-
-    window.addEventListener('scroll', handleScrollOrResize, { passive: true })
-    window.addEventListener('resize', handleScrollOrResize)
-
-    updateJumpButtonFromElementPosition()
-
-    return () => {
-      observer.disconnect()
-      window.removeEventListener('scroll', handleScrollOrResize)
-      window.removeEventListener('resize', handleScrollOrResize)
-
-      if (scrollTimeout) {
-        window.clearTimeout(scrollTimeout)
-      }
-    }
-  }, [nextMatchFixture])
-
   function handleJumpToNextMatch() {
-    if (!nextMatchFixture) {
-      return
-    }
+    if (!nextMatchFixture) return
 
-    const nextMatchElement = document.getElementById(getFixtureElementId(nextMatchFixture.id))
-
-    nextMatchElement?.scrollIntoView({
+    document.getElementById(getFixtureElementId(nextMatchFixture.id))?.scrollIntoView({
       behavior: 'smooth',
       block: 'center'
     })
 
-    setIsJumpButtonVisible(false)
     setHighlightedFixtureId(nextMatchFixture.id)
 
     window.setTimeout(() => {
@@ -377,11 +260,11 @@ export function GroupStageSection() {
           </div>
 
           <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300">
-            4-column fixture grid
+            3-column fixture grid
           </span>
         </div>
 
-        <div className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
           {groupStageFixtures.map((fixture) => {
             const homeTeam = teams.find((team) => team.id === fixture.homeTeamId)
             const awayTeam = teams.find((team) => team.id === fixture.awayTeamId)
@@ -400,7 +283,7 @@ export function GroupStageSection() {
         </div>
       </div>
 
-      {nextMatchFixture && isJumpButtonVisible && (
+      {nextMatchFixture && (
         <button
           type="button"
           onClick={handleJumpToNextMatch}

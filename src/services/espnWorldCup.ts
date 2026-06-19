@@ -249,6 +249,14 @@ type EspnCommentaryItem = {
 
 type JsonRecord = Record<string, unknown>
 
+type NormalizedLineupContainer = {
+  teamId?: string
+  formation: string | null
+  coach: string | null
+  starters: RealMatchLineupPlayer[]
+  substitutes: RealMatchLineupPlayer[]
+}
+
 function isRecord(value: unknown): value is JsonRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -294,7 +302,6 @@ function normalizeComparableText(value: string) {
 
 function getComparableTeamTokens(team: Team | undefined) {
   if (!team) return []
-
   return [team.id, team.name, team.shortName].map(normalizeComparableText)
 }
 
@@ -339,7 +346,6 @@ function getEventTournamentDate(event: EspnEvent, competition: EspnCompetition) 
 function isValidWorldCupPayload(payload: EspnScoreboardPayload) {
   return payload.leagues?.some((league) => {
     const seasonYear = Number(league.season?.year)
-
     return league.slug === REQUIRED_LEAGUE_SLUG && seasonYear === REQUIRED_SEASON_YEAR
   })
 }
@@ -357,19 +363,12 @@ function getAwayCompetitor(competition: EspnCompetition) {
 }
 
 function eventMatchesFixture(event: EspnEvent, fixture: Fixture) {
-  if (Number(event.season?.year) !== REQUIRED_SEASON_YEAR) {
-    return false
-  }
+  if (Number(event.season?.year) !== REQUIRED_SEASON_YEAR) return false
 
   const competition = getPrimaryCompetition(event)
 
-  if (!competition?.altGameNote?.includes('FIFA World Cup')) {
-    return false
-  }
-
-  if (getEventTournamentDate(event, competition) !== fixture.date) {
-    return false
-  }
+  if (!competition?.altGameNote?.includes('FIFA World Cup')) return false
+  if (getEventTournamentDate(event, competition) !== fixture.date) return false
 
   const fixtureHomeTokens = getComparableTeamTokens(getTeam(fixture.homeTeamId))
   const fixtureAwayTokens = getComparableTeamTokens(getTeam(fixture.awayTeamId))
@@ -385,7 +384,6 @@ function eventMatchesFixture(event: EspnEvent, fixture: Fixture) {
 
 function shouldReverseTeamOrder(event: EspnEvent, fixture: Fixture) {
   const competition = getPrimaryCompetition(event)
-
   if (!competition) return false
 
   const fixtureHomeTokens = getComparableTeamTokens(getTeam(fixture.homeTeamId))
@@ -396,15 +394,11 @@ function shouldReverseTeamOrder(event: EspnEvent, fixture: Fixture) {
 
 function parseScore(value: string | undefined) {
   const score = Number(value)
-
   return Number.isFinite(score) ? score : null
 }
 
 function formatScore(home: number | null, away: number | null) {
-  if (home === null || away === null) {
-    return '-'
-  }
-
+  if (home === null || away === null) return '-'
   return `${home} - ${away}`
 }
 
@@ -412,11 +406,9 @@ function parseElapsedFromClock(displayClock: string | undefined) {
   if (!displayClock) return null
 
   const match = displayClock.match(/^(\d+)/)
-
   if (!match) return null
 
   const elapsed = Number(match[1])
-
   return Number.isFinite(elapsed) ? elapsed : null
 }
 
@@ -450,7 +442,6 @@ function normalizeEspnStatus(status: EspnCompetitionStatus | undefined): RealMat
 
 function hasCompetitionStarted(status: EspnCompetitionStatus | undefined) {
   const state = status?.type?.state
-
   return state === 'in' || state === 'post' || Boolean(status?.type?.completed)
 }
 
@@ -516,48 +507,44 @@ function normalizeEspnStatistics(competition: EspnCompetition, reverseTeamOrder:
 }
 
 function getCompetitorByTeamId(competition: EspnCompetition, teamId: string | undefined) {
+  if (!teamId) return undefined
   return competition.competitors?.find((competitor) => competitor.id === teamId || competitor.team?.id === teamId)
 }
 
-function normalizeEventType(detail: EspnCompetitionDetail) {
-  const type = detail.type?.text || ''
+function getEventType(detail: EspnCompetitionDetail) {
+  const text = detail.type?.text || 'Event'
 
-  if (detail.scoringPlay || type.toLowerCase().includes('goal') || type.toLowerCase().includes('penalty - scored')) {
-    return type || 'Goal'
-  }
+  if (detail.scoringPlay || /goal|penalty - scored/i.test(text)) return 'Goal'
+  if (detail.yellowCard || /yellow/i.test(text)) return 'Yellow Card'
+  if (detail.redCard || /red/i.test(text)) return 'Red Card'
+  if (/substitution/i.test(text)) return 'Substitution'
 
-  if (detail.redCard) return type || 'Red Card'
-  if (detail.yellowCard) return type || 'Yellow Card'
-
-  return type
+  return text
 }
 
 function normalizeEspnEvents(competition: EspnCompetition): RealMatchEvent[] {
-  if (!competition.details?.length) return []
-
-  return competition.details
+  return (competition.details ?? [])
     .map((detail) => {
-      const eventType = normalizeEventType(detail)
+      const type = getEventType(detail)
       const player = detail.athletesInvolved?.[0]
-      const team = getCompetitorByTeamId(competition, detail.team?.id || player?.team?.id)
-      const displayClock = detail.clock?.displayValue
-      const elapsed = parseElapsedFromClock(displayClock)
-      const detailParts = [
-        detail.penaltyKick ? 'Penalty' : '',
-        detail.ownGoal ? 'Own goal' : '',
-        detail.shootout ? 'Shootout' : ''
-      ].filter(Boolean)
+      const secondaryPlayer = detail.athletesInvolved?.[1]
+      const team = getCompetitorByTeamId(competition, detail.team?.id ?? player?.team?.id)
       const playerName = player?.displayName || player?.fullName || player?.shortName
+      const secondaryPlayerName = secondaryPlayer?.displayName || secondaryPlayer?.fullName || secondaryPlayer?.shortName
+      const timeLabel = detail.clock?.displayValue
+      const elapsed = detail.clock?.value ?? parseElapsedFromClock(timeLabel)
 
       return {
-        elapsed,
-        timeLabel: displayClock,
+        elapsed: typeof elapsed === 'number' ? elapsed : null,
+        timeLabel,
         teamName: team?.team?.displayName || team?.team?.name,
         teamLogo: team?.team?.logo,
         playerName,
-        type: eventType,
-        detail: detailParts.join(' · '),
-        displayText: playerName
+        secondaryPlayerName,
+        type,
+        detail: detail.type?.text,
+        scoreDisplay: typeof detail.scoreValue === 'number' ? String(detail.scoreValue) : undefined,
+        displayText: playerName ? `${type}: ${playerName}` : type
       }
     })
     .filter((event) => event.type || event.playerName || event.detail)
@@ -593,28 +580,29 @@ function readLineupPlayerPosition(value: unknown) {
 }
 
 function normalizeLineupPlayers(values: unknown[]): RealMatchLineupPlayer[] {
-  return values
-    .map((value) => {
-      if (!isRecord(value)) return undefined
+  const players: RealMatchLineupPlayer[] = []
 
-      const name = readLineupPlayerName(value)
+  values.forEach((value) => {
+    if (!isRecord(value)) return
 
-      if (!name) return undefined
+    const name = readLineupPlayerName(value)
+    if (!name) return
 
-      return {
-        name,
-        number:
-          readString(value, 'jersey') ||
-          readString(value, 'jerseyNumber') ||
-          readString(value, 'shirtNumber') ||
-          readString(readRecord(value, 'athlete'), 'jersey') ||
-          null,
-        position: readLineupPlayerPosition(value),
-        captain: readBoolean(value, 'captain'),
-        rating: readString(value, 'rating') || null
-      }
+    players.push({
+      name,
+      number:
+        readString(value, 'jersey') ||
+        readString(value, 'jerseyNumber') ||
+        readString(value, 'shirtNumber') ||
+        readString(readRecord(value, 'athlete'), 'jersey') ||
+        null,
+      position: readLineupPlayerPosition(value),
+      captain: readBoolean(value, 'captain'),
+      rating: readString(value, 'rating') || null
     })
-    .filter((player): player is RealMatchLineupPlayer => Boolean(player))
+  })
+
+  return players
 }
 
 function getLineupTeamId(value: unknown) {
@@ -646,7 +634,7 @@ function splitGenericPlayers(players: unknown[]) {
   return { starters: players, substitutes: [] }
 }
 
-function normalizeLineupContainer(value: unknown) {
+function normalizeLineupContainer(value: unknown): NormalizedLineupContainer | undefined {
   const starters = getLineupPlayersForKeys(value, ['starters', 'startingXI', 'startingXi', 'lineup', 'startingLineup'])
   const substitutes = getLineupPlayersForKeys(value, ['substitutes', 'subs', 'bench'])
 
@@ -661,7 +649,6 @@ function normalizeLineupContainer(value: unknown) {
   }
 
   const genericPlayers = getLineupPlayersForKeys(value, ['players'])
-
   if (!genericPlayers.length) return undefined
 
   const splitPlayers = splitGenericPlayers(genericPlayers)
@@ -675,27 +662,29 @@ function normalizeLineupContainer(value: unknown) {
   }
 }
 
-function getSummaryLineupContainers(summary?: EspnSummaryPayload) {
+function getSummaryLineupContainers(summary?: EspnSummaryPayload): NormalizedLineupContainer[] {
   if (!summary) return []
 
-  return [
+  const containers = [
     ...readArray(summary, 'lineups'),
     ...readArray(summary, 'rosters'),
     ...readArray(summary.boxscore, 'lineups'),
     ...readArray(summary.boxscore, 'rosters')
   ]
-    .map(normalizeLineupContainer)
-    .filter((lineup): lineup is NonNullable<ReturnType<typeof normalizeLineupContainer>> => Boolean(lineup))
+
+  const lineups: NormalizedLineupContainer[] = []
+
+  containers.forEach((container) => {
+    const lineup = normalizeLineupContainer(container)
+    if (lineup) lineups.push(lineup)
+  })
+
+  return lineups
 }
 
-function findLineupForTeam(
-  lineups: ReturnType<typeof getSummaryLineupContainers>,
-  competitor: EspnCompetitor | undefined
-) {
+function findLineupForTeam(lineups: NormalizedLineupContainer[], competitor: EspnCompetitor | undefined) {
   const teamId = competitor?.id ?? competitor?.team?.id
-
   if (!teamId) return undefined
-
   return lineups.find((lineup) => lineup.teamId === teamId)
 }
 
@@ -705,14 +694,14 @@ function normalizeEspnLineups(
   reverseTeamOrder: boolean
 ): RealMatchLineups | undefined {
   const lineupContainers = getSummaryLineupContainers(summary)
-
   if (!lineupContainers.length) return undefined
 
   const home = getHomeCompetitor(competition)
   const away = getAwayCompetitor(competition)
   const homeLineup = findLineupForTeam(lineupContainers, home)
   const awayLineup = findLineupForTeam(lineupContainers, away)
-  const lineups = {
+
+  const lineups: RealMatchLineups = {
     confirmed: Boolean(homeLineup || awayLineup),
     homeFormation: homeLineup?.formation ?? null,
     awayFormation: awayLineup?.formation ?? null,
@@ -747,34 +736,34 @@ function normalizeEspnCommentary(
 
   const sourceItems = [...(summary.commentary ?? []), ...(summary.plays ?? [])]
   const seen = new Set<string>()
+  const commentary: RealMatchCommentary[] = []
 
-  return sourceItems
-    .map((item) => {
-      const text = item.text || item.shortText || item.displayValue || ''
+  sourceItems.forEach((item) => {
+    const text = item.text || item.shortText || item.displayValue || ''
+    if (!text) return
 
-      if (!text) return undefined
+    const player = item.athletesInvolved?.[0] ?? item.participants?.[0]?.athlete
+    const team = getCompetitorByTeamId(competition, item.team?.id)
+    const timeLabel = item.time?.displayValue || item.clock?.displayValue
+    const elapsed = parseElapsedFromClock(timeLabel)
+    const id = item.id ?? `${timeLabel ?? ''}-${text}`
+    const key = String(id)
 
-      const player = item.athletesInvolved?.[0] ?? item.participants?.[0]?.athlete
-      const team = getCompetitorByTeamId(competition, item.team?.id)
-      const timeLabel = item.time?.displayValue || item.clock?.displayValue
-      const elapsed = parseElapsedFromClock(timeLabel)
-      const id = item.id ?? `${timeLabel ?? ''}-${text}`
-      const key = String(id)
+    if (seen.has(key)) return
+    seen.add(key)
 
-      if (seen.has(key)) return undefined
-      seen.add(key)
-
-      return {
-        id,
-        elapsed,
-        timeLabel,
-        teamName: item.team?.displayName || team?.team?.displayName || team?.team?.name,
-        playerName: player?.displayName || player?.fullName || player?.shortName,
-        type: item.type,
-        text
-      }
+    commentary.push({
+      id,
+      elapsed,
+      timeLabel,
+      teamName: item.team?.displayName || team?.team?.displayName || team?.team?.name,
+      playerName: player?.displayName || player?.fullName || player?.shortName,
+      type: item.type,
+      text
     })
-    .filter((item): item is RealMatchCommentary => Boolean(item))
+  })
+
+  return commentary
 }
 
 function getRecordSummary(competitor: EspnCompetitor | undefined) {
@@ -889,7 +878,6 @@ async function fetchEspnSummaryPayload(eventId: string | undefined): Promise<Esp
   if (!response.ok) return undefined
 
   const payload = (await response.json()) as EspnProxyResponse<EspnSummaryPayload, 'summary'>
-
   return payload.available ? payload.data : undefined
 }
 

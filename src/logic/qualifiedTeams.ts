@@ -10,10 +10,6 @@ export function getQualifiedTeams(scores: Record<string, PredictionScore>): Qual
   const directQualifiers: QualifiedTeamRow[] = groups.flatMap((group) => {
     const groupComplete = isGroupComplete(group.code, scores)
 
-    if (!groupComplete) {
-      return []
-    }
-
     const tableRows = calculateGroupTable({
       group: group.code,
       teams,
@@ -21,20 +17,33 @@ export function getQualifiedTeams(scores: Record<string, PredictionScore>): Qual
       scores
     })
 
-    return tableRows.slice(0, 2).map((row, index): QualifiedTeamRow => {
-      const groupPosition = index + 1
-      const isWinner = groupPosition === 1
+    return tableRows
+      .map((row, index): QualifiedTeamRow | null => {
+        const groupPosition = index + 1
+        const isDirectPosition = groupPosition <= 2
+        const hasLockedQualification = row.directQualificationStatus === 'qualified'
 
-      return {
-        ...row,
-        group: group.code,
-        groupName: group.name,
-        groupPosition,
-        qualificationSource: isWinner ? 'groupWinner' : 'groupRunnerUp',
-        isGroupComplete: true,
-        seedLabel: `${groupPosition}${group.code}`
-      }
-    })
+        if (!groupComplete && !hasLockedQualification) {
+          return null
+        }
+
+        if (groupComplete && !isDirectPosition) {
+          return null
+        }
+
+        const isWinner = groupPosition === 1
+
+        return {
+          ...row,
+          group: group.code,
+          groupName: group.name,
+          groupPosition,
+          qualificationSource: isWinner ? 'groupWinner' : 'groupRunnerUp',
+          isGroupComplete: groupComplete,
+          seedLabel: `${groupPosition}${group.code}`
+        }
+      })
+      .filter((row): row is QualifiedTeamRow => Boolean(row))
   })
 
   const thirdPlaceQualifiers: QualifiedTeamRow[] = calculateThirdPlaceRanking(scores)
@@ -53,6 +62,7 @@ export function getQualifiedTeams(scores: Record<string, PredictionScore>): Qual
         goalsAgainst: row.goalsAgainst,
         goalDifference: row.goalDifference,
         points: row.points,
+        directQualificationStatus: row.directQualificationStatus,
         group: row.group,
         groupName: row.groupName,
         groupPosition: 3,

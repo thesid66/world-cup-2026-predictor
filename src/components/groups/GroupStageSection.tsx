@@ -27,6 +27,17 @@ function hasFixtureStarted(fixture: Fixture) {
   return kickoffDate.getTime() <= Date.now()
 }
 
+function shouldAttemptActualScoreLoad(
+  fixture: Fixture,
+  scores: ReturnType<typeof usePredictionStore.getState>['scores']
+) {
+  return (
+    canFetchEspnWorldCupMatchData(fixture) &&
+    hasFixtureStarted(fixture) &&
+    !isFixtureCompleted(fixture, scores)
+  )
+}
+
 function hasUsableActualScore(matchData?: RealMatchData) {
   return typeof matchData?.score.home === 'number' && typeof matchData.score.away === 'number'
 }
@@ -174,6 +185,17 @@ export function GroupStageSection() {
       )
     }
 
+    const remainingLoadableFixtures = groupStageFixtures.filter((fixture) =>
+      shouldAttemptActualScoreLoad(fixture, usePredictionStore.getState().scores)
+    )
+
+    setIsLoadingActualScores(false)
+
+    if (remainingLoadableFixtures.length === 0) {
+      setActualScoreLoadSummary(null)
+      return
+    }
+
     const summaryParts = [`${loadedCount} loaded`]
 
     if (skippedCount > 0) {
@@ -189,7 +211,6 @@ export function GroupStageSection() {
     }
 
     setActualScoreLoadSummary(`Actual scores: ${summaryParts.join(' · ')}.`)
-    setIsLoadingActualScores(false)
   }
 
   function handleJumpToNextMatch() {
@@ -293,18 +314,12 @@ export function GroupStageSection() {
       </div>
 
       <div className="rounded-[1.6rem] border border-white/10 bg-white/8 p-3 shadow-2xl backdrop-blur-xl sm:rounded-4xl sm:p-5">
-        <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-300 sm:tracking-[0.25em]">
-              Match flow
-            </p>
+        <div className="mb-5 min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-300 sm:tracking-[0.25em]">
+            Match flow
+          </p>
 
-            <h3 className="mt-1 text-2xl font-black leading-tight text-white">All group-stage fixtures</h3>
-          </div>
-
-          <span className="w-full rounded-full bg-white/10 px-3 py-2 text-center text-xs font-black text-slate-300 sm:w-auto sm:py-1">
-            3-column fixture grid
-          </span>
+          <h3 className="mt-1 text-2xl font-black leading-tight text-white">All group-stage fixtures</h3>
         </div>
 
         <div className="grid auto-rows-fr gap-3 md:grid-cols-2 xl:grid-cols-3">

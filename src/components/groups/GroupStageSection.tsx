@@ -377,11 +377,11 @@ export function GroupStageSection() {
           </div>
 
           <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300">
-            Sorted by date and time
+            4-column fixture grid
           </span>
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {groupStageFixtures.map((fixture) => {
             const homeTeam = teams.find((team) => team.id === fixture.homeTeamId)
             const awayTeam = teams.find((team) => team.id === fixture.awayTeamId)

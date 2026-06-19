@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { canFetchSportScoreMatchData, fetchSportScoreMatchDataForFixture } from '../services/sportScore'
+import { canFetchEspnWorldCupMatchData, fetchEspnWorldCupMatchDataForFixture } from '../services/espnWorldCup'
 import type { RealMatchData } from '../types/realMatch'
 import type { Fixture } from '../types/tournament'
 
@@ -32,11 +32,11 @@ export const useRealMatchStore = create<RealMatchState>()(
       errors: {},
 
       fetchMatchData: async (fixture, force = false) => {
-        if (!canFetchSportScoreMatchData(fixture)) {
+        if (!canFetchEspnWorldCupMatchData(fixture)) {
           set((state) => ({
             errors: {
               ...state.errors,
-              [fixture.id]: 'SportScore data is not available for this fixture yet.'
+              [fixture.id]: 'ESPN World Cup data is not available for this fixture yet.'
             }
           }))
           return
@@ -54,7 +54,7 @@ export const useRealMatchStore = create<RealMatchState>()(
         }))
 
         try {
-          const data = await fetchSportScoreMatchDataForFixture(fixture)
+          const data = await fetchEspnWorldCupMatchDataForFixture(fixture)
 
           set((state) => ({
             matches: { ...state.matches, [fixture.id]: data },
@@ -76,6 +76,6 @@ export const useRealMatchStore = create<RealMatchState>()(
         set({ matches: {}, loading: {}, errors: {} })
       }
     }),
-    { name: 'world-cup-2026-real-match-cache-v2' }
+    { name: 'world-cup-2026-real-match-cache-v3' }
   )
 )

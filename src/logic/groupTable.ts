@@ -20,8 +20,59 @@ function createEmptyRow(team: Team): GroupTableRow {
     goalsFor: 0,
     goalsAgainst: 0,
     goalDifference: 0,
-    points: 0
+    points: 0,
+    directQualificationStatus: 'pending'
   }
+}
+
+function isFixtureScored(fixture: Fixture, scores: Record<string, PredictionScore>) {
+  const prediction = scores[fixture.id]
+
+  return typeof prediction?.homeScore === 'number' && typeof prediction?.awayScore === 'number'
+}
+
+function getRemainingMatchesForTeam(
+  teamId: string,
+  groupFixtures: Fixture[],
+  scores: Record<string, PredictionScore>
+) {
+  return groupFixtures.filter((fixture) => {
+    const teamInFixture = fixture.homeTeamId === teamId || fixture.awayTeamId === teamId
+
+    return teamInFixture && !isFixtureScored(fixture, scores)
+  }).length
+}
+
+function applyDirectQualificationStatus(args: {
+  rows: GroupTableRow[]
+  groupFixtures: Fixture[]
+  scores: Record<string, PredictionScore>
+}) {
+  const { rows, groupFixtures, scores } = args
+  const groupComplete = groupFixtures.every((fixture) => isFixtureScored(fixture, scores))
+
+  if (groupComplete) {
+    rows.forEach((row, index) => {
+      row.directQualificationStatus = index <= 1 ? 'qualified' : 'pending'
+    })
+
+    return rows
+  }
+
+  rows.forEach((row) => {
+    const catchableTeams = rows.filter((otherRow) => {
+      if (otherRow.teamId === row.teamId) return false
+
+      const otherMaxPoints =
+        otherRow.points + getRemainingMatchesForTeam(otherRow.teamId, groupFixtures, scores) * 3
+
+      return otherMaxPoints >= row.points
+    })
+
+    row.directQualificationStatus = row.played > 0 && catchableTeams.length <= 1 ? 'qualified' : 'pending'
+  })
+
+  return rows
 }
 
 export function calculateGroupTable({
@@ -88,7 +139,7 @@ export function calculateGroupTable({
     awayRow.goalDifference = awayRow.goalsFor - awayRow.goalsAgainst
   })
 
-  return Array.from(tableMap.values()).sort((a, b) => {
+  const sortedRows = Array.from(tableMap.values()).sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points
 
     if (b.goalDifference !== a.goalDifference) {
@@ -98,5 +149,11 @@ export function calculateGroupTable({
     if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor
 
     return a.teamName.localeCompare(b.teamName)
+  })
+
+  return applyDirectQualificationStatus({
+    rows: sortedRows,
+    groupFixtures,
+    scores
   })
 }

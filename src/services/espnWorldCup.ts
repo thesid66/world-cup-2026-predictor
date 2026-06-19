@@ -337,8 +337,10 @@ function normalizeEspnStatus(status: EspnCompetitionStatus | undefined): RealMat
   }
 }
 
-function hasStarted(status: RealMatchStatus) {
-  return status.short !== 'NS'
+function hasCompetitionStarted(status: EspnCompetitionStatus | undefined) {
+  const state = status?.type?.state
+
+  return state === 'in' || state === 'post' || Boolean(status?.type?.completed)
 }
 
 function normalizeStatName(stat: { name?: string; abbreviation?: string }) {
@@ -467,8 +469,9 @@ function normalizeEspnMatchData(event: EspnEvent, fixture: Fixture, fetchedAt: s
   const displayHome = reverseTeamOrder ? away : home
   const displayAway = reverseTeamOrder ? home : away
   const status = normalizeEspnStatus(competition.status)
-  const homeScore = hasStarted(status) ? parseScore(displayHome?.score) : null
-  const awayScore = hasStarted(status) ? parseScore(displayAway?.score) : null
+  const hasStarted = hasCompetitionStarted(competition.status)
+  const homeScore = hasStarted ? parseScore(displayHome?.score) : null
+  const awayScore = hasStarted ? parseScore(displayAway?.score) : null
 
   return {
     provider: 'espn',

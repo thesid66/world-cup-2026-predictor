@@ -50,39 +50,39 @@ export function DashboardPage() {
   const featuredAwayTeam = teams.find((team) => team.id === featuredFixture?.awayTeamId)
 
   return (
-    <div className="grid gap-6">
-      <section id="dashboard" className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        <article className="rounded-3xl border border-white/10 bg-white/8 p-5 shadow-xl backdrop-blur-xl">
-          <p className="text-sm font-bold text-slate-400">Teams loaded</p>
-          <p className="mt-2 text-4xl font-black text-white">{teams.length}</p>
-          <p className="mt-2 text-sm text-slate-300">All World Cup teams are ready.</p>
+    <div className="grid gap-5 sm:gap-6">
+      <section id="dashboard" className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+        <article className="rounded-2xl border border-white/10 bg-white/8 p-4 shadow-xl backdrop-blur-xl sm:rounded-3xl sm:p-5">
+          <p className="text-xs font-bold text-slate-400 sm:text-sm">Teams loaded</p>
+          <p className="mt-2 text-3xl font-black text-white sm:text-4xl">{teams.length}</p>
+          <p className="mt-2 text-xs leading-5 text-slate-300 sm:text-sm">All World Cup teams are ready.</p>
         </article>
 
-        <article className="rounded-3xl border border-white/10 bg-white/8 p-5 shadow-xl backdrop-blur-xl">
-          <p className="text-sm font-bold text-slate-400">Groups loaded</p>
-          <p className="mt-2 text-4xl font-black text-white">{groups.length}</p>
-          <p className="mt-2 text-sm text-slate-300">Group A to Group L are ready.</p>
+        <article className="rounded-2xl border border-white/10 bg-white/8 p-4 shadow-xl backdrop-blur-xl sm:rounded-3xl sm:p-5">
+          <p className="text-xs font-bold text-slate-400 sm:text-sm">Groups loaded</p>
+          <p className="mt-2 text-3xl font-black text-white sm:text-4xl">{groups.length}</p>
+          <p className="mt-2 text-xs leading-5 text-slate-300 sm:text-sm">Group A to Group L are ready.</p>
         </article>
 
-        <article className="rounded-3xl border border-white/10 bg-white/8 p-5 shadow-xl backdrop-blur-xl">
-          <p className="text-sm font-bold text-slate-400">Fixtures loaded</p>
-          <p className="mt-2 text-4xl font-black text-white">{fixtures.length}</p>
-          <p className="mt-2 text-sm text-slate-300">Full group-stage fixture data is ready.</p>
+        <article className="rounded-2xl border border-white/10 bg-white/8 p-4 shadow-xl backdrop-blur-xl sm:rounded-3xl sm:p-5">
+          <p className="text-xs font-bold text-slate-400 sm:text-sm">Fixtures loaded</p>
+          <p className="mt-2 text-3xl font-black text-white sm:text-4xl">{fixtures.length}</p>
+          <p className="mt-2 text-xs leading-5 text-slate-300 sm:text-sm">Full group-stage fixture data is ready.</p>
         </article>
 
-        <article className="rounded-3xl border border-white/10 bg-white/8 p-5 shadow-xl backdrop-blur-xl">
-          <p className="text-sm font-bold text-slate-400">Scores entered</p>
-          <p className="mt-2 text-4xl font-black text-white">{completedMatches}</p>
-          <p className="mt-2 text-sm text-slate-300">Scores save to your account after login.</p>
+        <article className="rounded-2xl border border-white/10 bg-white/8 p-4 shadow-xl backdrop-blur-xl sm:rounded-3xl sm:p-5">
+          <p className="text-xs font-bold text-slate-400 sm:text-sm">Scores entered</p>
+          <p className="mt-2 text-3xl font-black text-white sm:text-4xl">{completedMatches}</p>
+          <p className="mt-2 text-xs leading-5 text-slate-300 sm:text-sm">Scores save to your account after login.</p>
         </article>
       </section>
 
-      <section className="rounded-4xl border border-white/10 bg-white/8 p-5 shadow-2xl backdrop-blur-xl">
+      <section className="rounded-[1.6rem] border border-white/10 bg-white/8 p-4 shadow-2xl backdrop-blur-xl sm:rounded-4xl sm:p-5">
         <div className="mb-5">
-          <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-300 sm:text-sm sm:tracking-[0.3em]">
             {liveFixture ? 'Live now' : 'Next match'}
           </p>
-          <h2 className="mt-2 text-3xl font-black text-white">
+          <h2 className="mt-2 text-3xl font-black leading-tight text-white">
             {liveFixture ? 'Live match centre' : 'Upcoming fixture'}
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">

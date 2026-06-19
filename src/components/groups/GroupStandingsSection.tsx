@@ -26,7 +26,7 @@ export function GroupStandingsSection() {
               </p>
             </div>
 
-            <div className="grid gap-2 text-center lg:justify-self-end lg:text-right min-w-sm">
+            <div className="grid gap-2 text-center lg:justify-self-end min-w-[100px]">
               <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-3">
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-200">
                   1st - 2nd

@@ -97,15 +97,26 @@ export function GroupStageSection() {
 
     let loadedCount = 0
     let unavailableCount = 0
+    let skippedCount = 0
 
     for (const fixture of groupStageFixtures) {
+      const latestScores = usePredictionStore.getState().scores
+
+      if (isFixtureCompleted(fixture, latestScores)) {
+        skippedCount += 1
+        setActualScoreLoadSummary(
+          `Loading actual scores... ${loadedCount} loaded · ${skippedCount} skipped · ${unavailableCount} unavailable`
+        )
+        continue
+      }
+
       if (!canFetchEspnWorldCupMatchData(fixture)) {
         unavailableCount += 1
         continue
       }
 
       setActualScoreLoadSummary(
-        `Loading actual scores... ${loadedCount} loaded · ${unavailableCount} unavailable · checking match ${fixture.matchNumber}`
+        `Loading actual scores... ${loadedCount} loaded · ${skippedCount} skipped · ${unavailableCount} unavailable · checking match ${fixture.matchNumber}`
       )
 
       try {
@@ -125,6 +136,11 @@ export function GroupStageSection() {
       const currentScores = usePredictionStore.getState().scores
       const currentScore = currentScores[fixture.id]
 
+      if (isFixtureCompleted(fixture, currentScores)) {
+        skippedCount += 1
+        continue
+      }
+
       replaceScores({
         ...currentScores,
         [fixture.id]: {
@@ -135,11 +151,15 @@ export function GroupStageSection() {
 
       loadedCount += 1
       setActualScoreLoadSummary(
-        `Loading actual scores... ${loadedCount} loaded · ${unavailableCount} unavailable`
+        `Loading actual scores... ${loadedCount} loaded · ${skippedCount} skipped · ${unavailableCount} unavailable`
       )
     }
 
     const summaryParts = [`${loadedCount} loaded`]
+
+    if (skippedCount > 0) {
+      summaryParts.push(`${skippedCount} skipped`)
+    }
 
     if (unavailableCount > 0) {
       summaryParts.push(`${unavailableCount} unavailable`)

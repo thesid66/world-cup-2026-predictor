@@ -5,6 +5,7 @@ import type { RealMatchData } from '../types/realMatch'
 import type { Fixture } from '../types/tournament'
 
 const REAL_MATCH_CACHE_TTL_MS = 60 * 1000
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 type RealMatchState = {
   matches: Record<string, RealMatchData>
@@ -24,6 +25,28 @@ function isRealMatchCacheFresh(matchData: RealMatchData) {
   return Date.now() - fetchedAtTime < REAL_MATCH_CACHE_TTL_MS
 }
 
+function addDaysToFixtureDate(date: string, days: number) {
+  const [year, month, day] = date.split('-').map(Number)
+
+  if (!year || !month || !day) {
+    return date
+  }
+
+  return new Date(Date.UTC(year, month - 1, day) + days * ONE_DAY_MS).toISOString().slice(0, 10)
+}
+
+function getEspnLookupFixture(fixture: Fixture): Fixture {
+  if (fixture.kickoffTimeSort !== '24:00') {
+    return fixture
+  }
+
+  return {
+    ...fixture,
+    date: addDaysToFixtureDate(fixture.date, 1),
+    kickoffTimeSort: '00:00'
+  }
+}
+
 export const useRealMatchStore = create<RealMatchState>()(
   persist(
     (set, get) => ({
@@ -32,7 +55,9 @@ export const useRealMatchStore = create<RealMatchState>()(
       errors: {},
 
       fetchMatchData: async (fixture, force = false) => {
-        if (!canFetchEspnWorldCupMatchData(fixture)) {
+        const lookupFixture = getEspnLookupFixture(fixture)
+
+        if (!canFetchEspnWorldCupMatchData(lookupFixture)) {
           set((state) => ({
             errors: {
               ...state.errors,
@@ -54,7 +79,7 @@ export const useRealMatchStore = create<RealMatchState>()(
         }))
 
         try {
-          const data = await fetchEspnWorldCupMatchDataForFixture(fixture)
+          const data = await fetchEspnWorldCupMatchDataForFixture(lookupFixture)
 
           set((state) => ({
             matches: { ...state.matches, [fixture.id]: data },

@@ -39,7 +39,7 @@ function TeamSide({
 }) {
   return (
     <div
-      className={`flex min-w-0 items-center gap-3 ${
+      className={`flex min-w-0 items-center gap-2 sm:gap-3 ${
         align === 'right' ? 'justify-end text-right' : ''
       }`}
     >
@@ -49,7 +49,7 @@ function TeamSide({
         <p className="break-words text-sm font-black leading-tight text-white sm:truncate sm:text-base">
           {team ? team.teamName : fallbackLabel}
         </p>
-        <p className="text-xs font-bold text-slate-500">
+        <p className="text-[11px] font-bold text-slate-500 sm:text-xs">
           {team ? `${team.seedLabel} · ${team.shortName}` : 'Pending'}
         </p>
       </div>
@@ -75,7 +75,7 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
 
   return (
     <article
-      className={`group overflow-hidden rounded-2xl border p-4 shadow-lg transition hover:-translate-y-0.5 ${
+      className={`group overflow-hidden rounded-2xl border p-3 shadow-lg transition hover:-translate-y-0.5 sm:p-4 ${
         winner
           ? 'border-emerald-300/25 bg-emerald-300/10'
           : hasBothTeams
@@ -83,7 +83,7 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
             : 'border-white/10 bg-slate-950/35 opacity-90'
       }`}
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 grid gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`rounded-full px-3 py-1 text-xs font-black ${
@@ -101,7 +101,7 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
         </div>
 
         {winner && (
-          <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-xs font-black text-emerald-200 ring-1 ring-emerald-300/25">
+          <span className="w-full rounded-full bg-emerald-300/15 px-3 py-2 text-center text-xs font-black text-emerald-200 ring-1 ring-emerald-300/25 sm:w-auto sm:py-1">
             {winner.shortName} advance
           </span>
         )}
@@ -110,11 +110,12 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
       <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
         <TeamSide team={match.homeTeam} fallbackLabel={match.homeLabel} />
 
-        <div className="col-span-2 row-start-2 mx-auto w-full max-w-[16rem] rounded-2xl border border-white/10 bg-black/20 p-2 sm:col-span-1 sm:row-start-auto sm:w-auto sm:max-w-none">
+        <div className="col-span-2 row-start-2 mx-auto w-full max-w-[18rem] rounded-2xl border border-white/10 bg-black/20 p-2 sm:col-span-1 sm:row-start-auto sm:w-auto sm:max-w-none">
           <div className="flex items-center justify-center gap-2">
             <input
               type="number"
               min={0}
+              inputMode="numeric"
               disabled={!hasBothTeams}
               value={score?.homeScore ?? ''}
               onChange={(event) =>
@@ -128,6 +129,7 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
             <input
               type="number"
               min={0}
+              inputMode="numeric"
               disabled={!hasBothTeams}
               value={score?.awayScore ?? ''}
               onChange={(event) =>
@@ -144,19 +146,19 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
       </div>
 
       <div className="relative mt-8 border-t border-white/10 pt-8 sm:mt-6 sm:pt-5">
-        <span className="absolute left-3 right-3 top-0 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-center text-[9px] font-black uppercase tracking-[0.12em] text-yellow-200 shadow-lg sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:whitespace-nowrap sm:text-[10px] sm:tracking-[0.18em]">
+        <span className="absolute left-2 right-2 top-0 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-center text-[8px] font-black uppercase tracking-[0.08em] text-yellow-200 shadow-lg sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:whitespace-nowrap sm:text-[10px] sm:tracking-[0.18em]">
           Knockout fixture
         </span>
 
         {!hasBothTeams && (
-          <p className="rounded-xl bg-yellow-300/10 px-3 py-2 text-xs font-bold text-yellow-100">
+          <p className="rounded-xl bg-yellow-300/10 px-3 py-3 text-center text-xs font-bold leading-5 text-yellow-100 sm:text-left">
             Complete the previous stage first to resolve this match.
           </p>
         )}
 
         {isDraw && match.homeTeam && match.awayTeam && (
           <div className="rounded-xl border border-yellow-300/20 bg-yellow-300/10 p-3">
-            <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-yellow-200">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-yellow-200 sm:tracking-[0.2em]">
               Draw after score — select advancing team
             </p>
 
@@ -169,7 +171,7 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
                     key={team.teamId}
                     type="button"
                     onClick={() => setWinnerTeam(match.id, team.teamId)}
-                    className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-black transition ${
+                    className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-black transition ${
                       isSelected
                         ? 'bg-emerald-300 text-emerald-950'
                         : 'bg-white/10 text-white hover:bg-white/15'

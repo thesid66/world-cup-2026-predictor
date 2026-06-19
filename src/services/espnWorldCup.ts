@@ -13,6 +13,7 @@ const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL ?? '').replace(/\/
 const ESPN_SCOREBOARD_PROXY_URL = `${SUPABASE_URL}/functions/v1/espn-worldcup-scoreboard`
 const REQUIRED_LEAGUE_SLUG = 'fifa.world'
 const REQUIRED_SEASON_YEAR = 2026
+const TOURNAMENT_UTC_OFFSET_MS = 4 * 60 * 60 * 1000
 
 const teamById = new Map(teams.map((team) => [team.id, team]))
 
@@ -24,13 +25,13 @@ const comparableTeamAliases: Record<string, string> = {
   'bosnia-and-herzegovina': 'bosnia-herzegovina',
   'bosnia-herz': 'bosnia-herzegovina',
   'bosnia-herzegovina': 'bosnia-herzegovina',
-  'turkiye': 'turkey',
+  turkiye: 'turkey',
   'turkiye-national-football-team': 'turkey',
   'cote-divoire': 'ivory-coast',
   'cote-d-ivoire': 'ivory-coast',
   'ivory-coast': 'ivory-coast',
-  'curacao': 'curacao',
-  'curaçao': 'curacao',
+  curacao: 'curacao',
+  curaçao: 'curacao',
   'cabo-verde': 'cape-verde',
   'cape-verde': 'cape-verde',
   'ir-iran': 'iran',
@@ -208,6 +209,22 @@ function getEspnDateParam(fixture: Fixture) {
   return fixture.date.replace(/[^0-9]/g, '')
 }
 
+function getTournamentDateFromEspnEventDate(value: string) {
+  const utcTime = Date.parse(value)
+
+  if (Number.isNaN(utcTime)) {
+    return ''
+  }
+
+  return new Date(utcTime - TOURNAMENT_UTC_OFFSET_MS).toISOString().slice(0, 10)
+}
+
+function getEventTournamentDate(event: EspnEvent, competition: EspnCompetition) {
+  return getTournamentDateFromEspnEventDate(
+    String(event.date ?? competition.date ?? competition.startDate ?? '')
+  )
+}
+
 function isValidWorldCupPayload(payload: EspnScoreboardPayload) {
   return payload.leagues?.some((league) => {
     const seasonYear = Number(league.season?.year)
@@ -239,9 +256,7 @@ function eventMatchesFixture(event: EspnEvent, fixture: Fixture) {
     return false
   }
 
-  const eventDate = String(event.date ?? competition.date ?? competition.startDate ?? '')
-
-  if (!eventDate.startsWith(fixture.date)) {
+  if (getEventTournamentDate(event, competition) !== fixture.date) {
     return false
   }
 
@@ -426,8 +441,7 @@ function normalizeEspnEvents(competition: EspnCompetition, reverseTeamOrder: boo
         playerName: player?.displayName || player?.fullName || player?.shortName,
         type: eventType,
         detail: detailParts.join(' · '),
-        displayText: player?.displayName || player?.fullName || player?.shortName,
-        scoreDisplay: detail.scoringPlay ? undefined : undefined
+        displayText: player?.displayName || player?.fullName || player?.shortName
       }
     })
     .filter((event) => event.type || event.playerName || event.detail)

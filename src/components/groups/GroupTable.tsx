@@ -25,6 +25,10 @@ function getRankStyle(index: number, qualified = false) {
   return 'bg-red-300/20 text-red-200'
 }
 
+function getRankMarker(index: number, qualified = false) {
+  return qualified ? 'Q' : index + 1
+}
+
 function getStatusLabel(index: number, qualified = false) {
   if (qualified) return 'Qualified'
   if (index <= 1) return 'Qualify'
@@ -57,14 +61,6 @@ function getRowClass(row: GroupTableRow) {
   return 'border-white/10 bg-slate-950/45'
 }
 
-function QualifiedBadge() {
-  return (
-    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-300 px-2 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-950 shadow-lg shadow-emerald-300/20">
-      Q
-    </span>
-  )
-}
-
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl bg-white/6 px-2 py-2 text-center ring-1 ring-white/8">
@@ -91,16 +87,13 @@ export function GroupTable({ rows }: GroupTableProps) {
                       qualified
                     )}`}
                   >
-                    {index + 1}
+                    {getRankMarker(index, qualified)}
                   </span>
 
                   <TeamFlag code={row.flagCode} label={row.teamName} />
 
                   <div className="min-w-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <p className="truncate font-black text-white">{row.teamName}</p>
-                      {qualified && <QualifiedBadge />}
-                    </div>
+                    <p className="truncate font-black text-white">{row.teamName}</p>
 
                     <div className="mt-1 flex flex-wrap items-center gap-2">
                       <p className="text-[10px] font-black text-slate-500">{row.shortName}</p>
@@ -169,7 +162,7 @@ export function GroupTable({ rows }: GroupTableProps) {
                         qualified
                       )}`}
                     >
-                      {index + 1}
+                      {getRankMarker(index, qualified)}
                     </span>
                   </td>
 
@@ -178,10 +171,7 @@ export function GroupTable({ rows }: GroupTableProps) {
                       <TeamFlag code={row.flagCode} label={row.teamName} />
 
                       <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-black text-white">{row.teamName}</p>
-                          {qualified && <QualifiedBadge />}
-                        </div>
+                        <p className="font-black text-white">{row.teamName}</p>
 
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           <p className="text-[10px] font-black text-slate-500">{row.shortName}</p>

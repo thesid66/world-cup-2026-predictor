@@ -1,43 +1,47 @@
-import { CalendarDays, GitBranch, LogIn, LogOut, Medal, Table2, Trophy } from 'lucide-react'
+import { CalendarDays, GitBranch, LogIn, LogOut, Table2, Trophy } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
 
+export type AppPage = 'dashboard' | 'fixtures' | 'standings' | 'knockout'
+
 type AppShellProps = {
   children: ReactNode
+  activePage: AppPage
+  onPageChange: (page: AppPage) => void
   onAuthClick?: () => void
 }
 
-const navItems = [
+const navItems: Array<{
+  label: string
+  page: AppPage
+  icon: typeof Trophy
+}> = [
   {
     label: 'Dashboard',
-    href: '#dashboard',
+    page: 'dashboard',
     icon: Trophy
   },
   {
     label: 'Fixtures',
-    href: '#fixtures',
+    page: 'fixtures',
     icon: CalendarDays
   },
   {
     label: 'Standings',
-    href: '#standings',
+    page: 'standings',
     icon: Table2
   },
   {
-    label: 'Knockout',
-    href: '#knockout',
+    label: 'Knockout & Finals',
+    page: 'knockout',
     icon: GitBranch
-  },
-  {
-    label: 'Champion',
-    href: '#champion',
-    icon: Medal
   }
 ]
 
-export function AppShell({ children, onAuthClick }: AppShellProps) {
+export function AppShell({ children, activePage, onPageChange, onAuthClick }: AppShellProps) {
   const [showBottomNav, setShowBottomNav] = useState(false)
   const { user, signOut } = useAuth()
+  const isWidePage = activePage === 'fixtures'
 
   useEffect(() => {
     function handleScroll() {
@@ -57,7 +61,7 @@ export function AppShell({ children, onAuthClick }: AppShellProps) {
 
   return (
     <main className="min-h-screen px-4 py-5 pb-28 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+      <div className={`mx-auto ${isWidePage ? 'max-w-[104rem]' : 'max-w-7xl'}`}>
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/8 p-5 shadow-2xl backdrop-blur-xl">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -106,19 +110,29 @@ export function AppShell({ children, onAuthClick }: AppShellProps) {
             </div>
           </div>
 
-          <nav className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <nav className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {navItems.map((item) => {
               const Icon = item.icon
+              const isActive = activePage === item.page
 
               return (
-                <a
+                <button
                   key={item.label}
-                  href={item.href}
-                  className="group flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/8 px-4 py-3 text-sm font-black text-slate-200 transition hover:-translate-y-0.5 hover:border-yellow-300/40 hover:bg-yellow-300/10 hover:text-white"
+                  type="button"
+                  onClick={() => onPageChange(item.page)}
+                  className={`group flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-black transition hover:-translate-y-0.5 ${
+                    isActive
+                      ? 'border-yellow-300/50 bg-yellow-300 text-slate-950 shadow-lg shadow-yellow-950/20'
+                      : 'border-white/10 bg-white/8 text-slate-200 hover:border-yellow-300/40 hover:bg-yellow-300/10 hover:text-white'
+                  }`}
                 >
-                  <Icon className="size-4 text-yellow-300 transition group-hover:scale-110" />
+                  <Icon
+                    className={`size-4 transition group-hover:scale-110 ${
+                      isActive ? 'text-slate-950' : 'text-yellow-300'
+                    }`}
+                  />
                   {item.label}
-                </a>
+                </button>
               )
             })}
           </nav>
@@ -137,19 +151,29 @@ export function AppShell({ children, onAuthClick }: AppShellProps) {
         <nav className="mx-auto flex max-w-fit items-center gap-1 rounded-full border border-white/15 bg-slate-950/80 p-2 shadow-2xl shadow-black/40 backdrop-blur-2xl ring-1 ring-white/10">
           {navItems.map((item) => {
             const Icon = item.icon
+            const isActive = activePage === item.page
 
             return (
-              <a
+              <button
                 key={item.label}
-                href={item.href}
+                type="button"
                 aria-label={item.label}
                 title={item.label}
-                className="group flex h-11 items-center justify-center gap-2 rounded-full px-3 text-sm font-black text-slate-300 transition hover:-translate-y-0.5 hover:bg-yellow-300 hover:text-slate-950 sm:px-4"
+                onClick={() => onPageChange(item.page)}
+                className={`group flex h-11 items-center justify-center gap-2 rounded-full px-3 text-sm font-black transition hover:-translate-y-0.5 sm:px-4 ${
+                  isActive
+                    ? 'bg-yellow-300 text-slate-950'
+                    : 'text-slate-300 hover:bg-yellow-300 hover:text-slate-950'
+                }`}
               >
-                <Icon className="size-5 text-yellow-300 transition group-hover:text-slate-950" />
+                <Icon
+                  className={`size-5 transition ${
+                    isActive ? 'text-slate-950' : 'text-yellow-300 group-hover:text-slate-950'
+                  }`}
+                />
 
                 <span className="hidden sm:inline">{item.label}</span>
-              </a>
+              </button>
             )
           })}
         </nav>

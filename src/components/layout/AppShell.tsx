@@ -41,7 +41,6 @@ const navItems: Array<{
 export function AppShell({ children, activePage, onPageChange, onAuthClick }: AppShellProps) {
   const [showBottomNav, setShowBottomNav] = useState(false)
   const { user, signOut } = useAuth()
-  const isWidePage = activePage === 'fixtures'
 
   useEffect(() => {
     function handleScroll() {
@@ -61,7 +60,7 @@ export function AppShell({ children, activePage, onPageChange, onAuthClick }: Ap
 
   return (
     <main className="min-h-screen px-4 py-5 pb-28 sm:px-6 lg:px-8">
-      <div className={`mx-auto ${isWidePage ? 'max-w-[104rem]' : 'max-w-7xl'}`}>
+      <div className="mx-auto w-full max-w-[104rem]">
         <header className="mb-8 rounded-3xl border border-white/10 bg-white/8 p-5 shadow-2xl backdrop-blur-xl">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -138,7 +137,7 @@ export function AppShell({ children, activePage, onPageChange, onAuthClick }: Ap
           </nav>
         </header>
 
-        {children}
+        <div className="grid gap-6">{children}</div>
       </div>
 
       <div

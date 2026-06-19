@@ -70,6 +70,9 @@ export const useRealMatchStore = create<RealMatchState>()(
         const existing = get().matches[fixture.id]
 
         if (existing && !force && isRealMatchCacheFresh(existing)) {
+          set((state) => ({
+            errors: { ...state.errors, [fixture.id]: null }
+          }))
           return
         }
 

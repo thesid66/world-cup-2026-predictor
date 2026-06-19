@@ -174,18 +174,18 @@ export function GroupStageSection() {
   const progress = totalMatches > 0 ? Math.round((completedMatches / totalMatches) * 100) : 0
 
   return (
-    <section id="fixtures" className="mt-6 scroll-mt-6">
-      <div className="mb-6 overflow-hidden rounded-4xl border border-white/10 bg-slate-950/50 shadow-2xl backdrop-blur-xl">
-        <div className="relative p-5 sm:p-6">
+    <section id="fixtures" className="mt-4 scroll-mt-4 sm:mt-6 sm:scroll-mt-6">
+      <div className="mb-5 overflow-hidden rounded-[1.6rem] border border-white/10 bg-slate-950/50 shadow-2xl backdrop-blur-xl sm:mb-6 sm:rounded-4xl">
+        <div className="relative p-4 sm:p-6">
           <div className="absolute inset-0 bg-linear-to-r from-yellow-300/10 via-sky-400/10 to-emerald-300/10" />
 
           <div className="relative flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.35em] text-yellow-300">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-yellow-300 sm:text-sm sm:tracking-[0.35em]">
                 Group stage
               </p>
 
-              <h2 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">
+              <h2 className="mt-2 text-3xl font-black leading-tight tracking-tight text-white sm:text-4xl">
                 Group-stage fixtures
               </h2>
 
@@ -195,12 +195,12 @@ export function GroupStageSection() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
+            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[22rem] lg:justify-end">
               <button
                 type="button"
                 disabled={isLoadingActualScores || !hasSportScoreFixtures}
                 onClick={() => void loadActualScores()}
-                className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-5 py-3 text-sm font-black text-emerald-200 transition hover:-translate-y-0.5 hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
+                className="min-h-11 rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-5 py-3 text-sm font-black text-emerald-200 transition hover:-translate-y-0.5 hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
               >
                 {isLoadingActualScores ? 'Loading actual scores...' : 'Load actual Score'}
               </button>
@@ -208,7 +208,7 @@ export function GroupStageSection() {
               <button
                 type="button"
                 onClick={resetPredictions}
-                className="rounded-2xl border border-red-300/30 bg-red-400/10 px-5 py-3 text-sm font-black text-red-200 transition hover:-translate-y-0.5 hover:bg-red-400/20"
+                className="min-h-11 rounded-2xl border border-red-300/30 bg-red-400/10 px-5 py-3 text-sm font-black text-red-200 transition hover:-translate-y-0.5 hover:bg-red-400/20"
               >
                 Reset all scores
               </button>
@@ -216,14 +216,14 @@ export function GroupStageSection() {
           </div>
 
           {actualScoreLoadSummary && (
-            <p className="relative mt-4 text-right text-xs font-bold text-emerald-100">
+            <p className="relative mt-4 rounded-2xl border border-emerald-300/15 bg-emerald-300/10 px-3 py-2 text-center text-xs font-bold leading-5 text-emerald-100 sm:text-right">
               {actualScoreLoadSummary}
             </p>
           )}
 
           <div className="relative mt-6 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
-              <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+              <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-black uppercase tracking-[0.16em] text-slate-500 sm:text-xs sm:tracking-[0.2em]">
                 <span>Overall group-stage progress</span>
                 <span>{progress}%</span>
               </div>
@@ -249,22 +249,22 @@ export function GroupStageSection() {
         </div>
       </div>
 
-      <div className="rounded-4xl border border-white/10 bg-white/8 p-4 shadow-2xl backdrop-blur-xl sm:p-5">
+      <div className="rounded-[1.6rem] border border-white/10 bg-white/8 p-3 shadow-2xl backdrop-blur-xl sm:rounded-4xl sm:p-5">
         <div className="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-sky-300">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-sky-300 sm:tracking-[0.25em]">
               Match flow
             </p>
 
-            <h3 className="mt-1 text-2xl font-black text-white">All group-stage fixtures</h3>
+            <h3 className="mt-1 text-2xl font-black leading-tight text-white">All group-stage fixtures</h3>
           </div>
 
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300">
+          <span className="w-full rounded-full bg-white/10 px-3 py-2 text-center text-xs font-black text-slate-300 sm:w-auto sm:py-1">
             3-column fixture grid
           </span>
         </div>
 
-        <div className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid auto-rows-fr gap-3 md:grid-cols-2 xl:grid-cols-3">
           {groupStageFixtures.map((fixture) => {
             const homeTeam = teams.find((team) => team.id === fixture.homeTeamId)
             const awayTeam = teams.find((team) => team.id === fixture.awayTeamId)
@@ -287,9 +287,9 @@ export function GroupStageSection() {
         <button
           type="button"
           onClick={handleJumpToNextMatch}
-          className="fixed right-3 top-3 z-50 inline-flex items-center gap-2 rounded-full border border-yellow-200/40 bg-slate-950/95 px-3 py-2 text-left shadow-xl shadow-black/30 ring-1 ring-white/10 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-yellow-200 hover:bg-slate-900 sm:right-6 sm:top-6 sm:px-4"
+          className="fixed right-3 top-3 z-50 inline-flex min-h-10 items-center gap-2 rounded-full border border-yellow-200/40 bg-slate-950/95 px-3 py-2 text-left shadow-xl shadow-black/30 ring-1 ring-white/10 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-yellow-200 hover:bg-slate-900 sm:right-6 sm:top-6 sm:px-4"
         >
-          <span className="text-xs font-black uppercase tracking-[0.16em] text-yellow-200">
+          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-yellow-200 sm:text-xs sm:tracking-[0.16em]">
             Next match
           </span>
           <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-black text-white">

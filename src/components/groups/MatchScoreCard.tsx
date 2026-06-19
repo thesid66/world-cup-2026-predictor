@@ -171,7 +171,7 @@ export function MatchScoreCard({
             setModalOpen(true)
           }
         }}
-        className={`group scroll-mt-28 cursor-pointer overflow-hidden rounded-2xl border p-4 shadow-lg transition hover:-translate-y-0.5 ${
+        className={`group scroll-mt-24 cursor-pointer overflow-hidden rounded-2xl border p-3 shadow-lg transition hover:-translate-y-0.5 sm:scroll-mt-28 sm:p-4 ${
           highlighted
             ? 'border-yellow-200/70 bg-yellow-300/15 ring-4 ring-yellow-300/40'
             : isCompleted
@@ -179,7 +179,7 @@ export function MatchScoreCard({
               : 'border-white/10 bg-slate-950/45 hover:border-yellow-300/25 hover:bg-white/8'
         }`}
       >
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-4 grid gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={`rounded-full px-3 py-1 text-xs font-black ${
@@ -195,42 +195,43 @@ export function MatchScoreCard({
               Group {fixture.group}
             </span>
 
-            <span className="text-xs font-bold text-slate-500">{fixture.city}</span>
+            <span className="min-w-0 text-xs font-bold text-slate-500">{fixture.city}</span>
           </div>
 
           {countdownLabel && (
-            <span className="rounded-full border border-yellow-300/25 bg-yellow-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-yellow-100">
+            <span className="w-full rounded-full border border-yellow-300/25 bg-yellow-300/10 px-3 py-2 text-center text-[10px] font-black uppercase tracking-[0.12em] text-yellow-100 sm:w-auto sm:py-1 sm:text-xs sm:tracking-[0.14em]">
               {countdownLabel}
             </span>
           )}
         </div>
 
         <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="lg" />
 
             <div className="min-w-0">
               <p className="break-words text-sm font-black leading-tight text-white sm:truncate sm:text-base">
                 {homeTeam?.name}
               </p>
-              <p className="text-xs font-bold text-slate-500">{homeTeam?.shortName}</p>
+              <p className="text-[11px] font-bold text-slate-500 sm:text-xs">{homeTeam?.shortName}</p>
             </div>
           </div>
 
           <div
-            className="col-span-2 row-start-2 mx-auto w-full max-w-[16rem] rounded-2xl border border-white/10 bg-black/20 p-2 sm:col-span-1 sm:row-start-auto sm:w-auto sm:max-w-none"
+            className="col-span-2 row-start-2 mx-auto w-full max-w-[18rem] rounded-2xl border border-white/10 bg-black/20 p-2 sm:col-span-1 sm:row-start-auto sm:w-auto sm:max-w-none"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-center gap-2">
               <input
                 type="number"
                 min={0}
+                inputMode="numeric"
                 value={score?.homeScore ?? ''}
                 onChange={(event) => {
                   setLoadRealDataStatus('idle')
                   updateScore(fixture.id, 'homeScore', parseScoreValue(event.target.value))
                 }}
-                className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10"
+                className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10 sm:h-12 sm:w-14"
               />
 
               <span className="font-black text-slate-500">:</span>
@@ -238,12 +239,13 @@ export function MatchScoreCard({
               <input
                 type="number"
                 min={0}
+                inputMode="numeric"
                 value={score?.awayScore ?? ''}
                 onChange={(event) => {
                   setLoadRealDataStatus('idle')
                   updateScore(fixture.id, 'awayScore', parseScoreValue(event.target.value))
                 }}
-                className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10"
+                className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10 sm:h-12 sm:w-14"
               />
             </div>
 
@@ -255,12 +257,12 @@ export function MatchScoreCard({
             </div>
           </div>
 
-          <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end gap-3 text-right sm:col-start-auto sm:row-start-auto">
+          <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end gap-2 text-right sm:col-start-auto sm:row-start-auto sm:gap-3">
             <div className="min-w-0">
               <p className="break-words text-sm font-black leading-tight text-white sm:truncate sm:text-base">
                 {awayTeam?.name}
               </p>
-              <p className="text-xs font-bold text-slate-500">{awayTeam?.shortName}</p>
+              <p className="text-[11px] font-bold text-slate-500 sm:text-xs">{awayTeam?.shortName}</p>
             </div>
 
             <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="lg" />
@@ -268,11 +270,11 @@ export function MatchScoreCard({
         </div>
 
         <div className="relative mt-8 grid gap-3 border-t border-white/10 pt-8 sm:mt-6 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:pt-5">
-          <span className="absolute left-3 right-3 top-0 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-center text-[9px] font-black uppercase tracking-[0.12em] text-yellow-200 shadow-lg sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:whitespace-nowrap sm:text-[10px] sm:tracking-[0.18em]">
+          <span className="absolute left-2 right-2 top-0 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-center text-[8px] font-black uppercase tracking-[0.08em] text-yellow-200 shadow-lg sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:whitespace-nowrap sm:text-[10px] sm:tracking-[0.18em]">
             {formatLocalFixtureDateTime(fixture)}
           </span>
 
-          <p className="text-xs font-bold text-slate-500">
+          <p className="text-center text-xs font-bold leading-5 text-slate-500 sm:text-left">
             {fixture.venue}, {fixture.city}
           </p>
 
@@ -281,7 +283,7 @@ export function MatchScoreCard({
               type="button"
               disabled={isLoadRealDataDisabled}
               onClick={handleLoadRealData}
-              className="rounded-full border border-emerald-300/30 bg-emerald-300/15 px-4 py-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-100 shadow-lg shadow-emerald-950/20 transition hover:border-emerald-200 hover:bg-emerald-300/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
+              className="min-h-10 rounded-full border border-emerald-300/30 bg-emerald-300/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-100 shadow-lg shadow-emerald-950/20 transition hover:border-emerald-200 hover:bg-emerald-300/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500 sm:tracking-[0.16em]"
             >
               {copyingRealData || realMatchLoading
                 ? 'Loading real data...'
@@ -309,7 +311,7 @@ export function MatchScoreCard({
             )}
           </div>
 
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-600 sm:text-right">
+          <p className="text-center text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 sm:text-right sm:text-xs sm:tracking-[0.2em]">
             Click for SportScore data
           </p>
         </div>

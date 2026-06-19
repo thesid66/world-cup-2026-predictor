@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTournamentData } from '../../context/TournamentDataContext'
-import { canFetchSportScoreMatchData } from '../../services/sportScore'
+import { canFetchEspnWorldCupMatchData } from '../../services/espnWorldCup'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import type { RealMatchData } from '../../types/realMatch'
@@ -87,10 +87,10 @@ export function GroupStageSection() {
     [groupStageFixtures]
   )
 
-  const hasSportScoreFixtures = groupStageFixtures.some(canFetchSportScoreMatchData)
+  const hasEspnFixtures = groupStageFixtures.some(canFetchEspnWorldCupMatchData)
 
   async function loadActualScores() {
-    if (isLoadingActualScores || !hasSportScoreFixtures) return
+    if (isLoadingActualScores || !hasEspnFixtures) return
 
     setIsLoadingActualScores(true)
     setActualScoreLoadSummary('Loading actual scores...')
@@ -99,7 +99,7 @@ export function GroupStageSection() {
     let unavailableCount = 0
 
     for (const fixture of groupStageFixtures) {
-      if (!canFetchSportScoreMatchData(fixture)) {
+      if (!canFetchEspnWorldCupMatchData(fixture)) {
         unavailableCount += 1
         continue
       }
@@ -198,7 +198,7 @@ export function GroupStageSection() {
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[22rem] lg:justify-end">
               <button
                 type="button"
-                disabled={isLoadingActualScores || !hasSportScoreFixtures}
+                disabled={isLoadingActualScores || !hasEspnFixtures}
                 onClick={() => void loadActualScores()}
                 className="min-h-11 rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-5 py-3 text-sm font-black text-emerald-200 transition hover:-translate-y-0.5 hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
               >

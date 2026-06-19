@@ -19,7 +19,7 @@ export function RoundOf16Bracket() {
   ).length
 
   return (
-    <section className="mt-6 rounded-3xl border border-white/10 bg-white/8 p-5 shadow-xl backdrop-blur-xl">
+    <section className="mt-6 rounded-4xl border border-white/10 bg-white/8 p-4 shadow-2xl backdrop-blur-xl sm:p-5">
       <div className="mb-5 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
         <div>
           <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
@@ -29,8 +29,7 @@ export function RoundOf16Bracket() {
           <h2 className="mt-2 text-3xl font-black text-white">Round of 16 bracket</h2>
 
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-            Winners from the Round of 32 automatically flow into these matches. Enter scores
-            manually and select a winner if the score is tied.
+            Winners from the Round of 32 automatically flow into these matches. Enter scores manually.
           </p>
         </div>
 
@@ -49,7 +48,7 @@ export function RoundOf16Bracket() {
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid auto-rows-fr gap-4 md:grid-cols-2 xl:grid-cols-3">
         {matches.map((match) => (
           <KnockoutMatchCard key={match.id} match={match} />
         ))}

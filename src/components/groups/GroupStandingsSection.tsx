@@ -23,6 +23,23 @@ export function GroupStandingsSection() {
               These tables update automatically from your score predictions. First and second place
               qualify directly, while third place enters the best-third ranking.
             </p>
+
+            <div className="mt-5 grid gap-2 text-center sm:grid-cols-3 lg:max-w-3xl">
+              <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-2 py-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-200">
+                  1st - 2nd
+                </p>
+                <p className="mt-1 text-xs font-bold text-slate-300">Qualify</p>
+              </div>
+              <div className="rounded-xl border border-yellow-300/20 bg-yellow-300/10 px-2 py-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-yellow-200">3rd</p>
+                <p className="mt-1 text-xs font-bold text-slate-300">Best third</p>
+              </div>
+              <div className="rounded-xl border border-red-300/20 bg-red-300/10 px-2 py-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-red-200">4th</p>
+                <p className="mt-1 text-xs font-bold text-slate-300">Out</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

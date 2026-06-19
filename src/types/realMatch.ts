@@ -63,7 +63,7 @@ export type RealMatchLineups = {
 }
 
 export type RealMatchData = {
-  provider: 'api-football' | 'sportscore' | 'espn'
+  provider: 'api-football' | 'espn'
   apiFixtureId: number | string
   fetchedAt: string
   status: RealMatchStatus

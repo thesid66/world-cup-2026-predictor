@@ -88,7 +88,7 @@ export function DashboardPage() {
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
             {liveFixture
               ? 'A loaded SportScore match is currently marked live. Open the card for timeline, score and match details.'
-              : 'No live SportScore match is currently loaded. The next scheduled fixture is shown below.'}
+              : 'No live SportScore match is currently loaded. The next scheduled fixture is shown below with a live kickoff countdown.'}
           </p>
         </div>
 
@@ -98,6 +98,7 @@ export function DashboardPage() {
             homeTeam={featuredHomeTeam}
             awayTeam={featuredAwayTeam}
             highlighted={Boolean(liveFixture)}
+            showCountdown
           />
         ) : (
           <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5 text-sm font-bold text-slate-300">

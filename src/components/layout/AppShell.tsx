@@ -141,13 +141,13 @@ export function AppShell({ children, activePage, onPageChange, onAuthClick }: Ap
       </div>
 
       <div
-        className={`fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-50 px-3 transition-all duration-300 ease-out sm:bottom-6 ${
+        className={`pointer-events-none fixed inset-x-0 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-50 flex justify-center px-3 transition-all duration-300 ease-out sm:bottom-6 ${
           showBottomNav
             ? 'translate-y-0 opacity-100'
-            : 'pointer-events-none translate-y-8 opacity-0'
+            : 'translate-y-8 opacity-0'
         }`}
       >
-        <nav className="mx-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-1 overflow-x-auto rounded-full border border-white/15 bg-slate-950/85 p-2 shadow-2xl shadow-black/40 backdrop-blur-2xl ring-1 ring-white/10 sm:max-w-fit sm:overflow-visible">
+        <nav className="pointer-events-auto flex w-fit max-w-[calc(100vw-1.5rem)] items-center gap-1 overflow-x-auto rounded-full border border-white/15 bg-slate-950/85 p-1.5 shadow-2xl shadow-black/40 backdrop-blur-2xl ring-1 ring-white/10 sm:overflow-visible sm:p-2">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = activePage === item.page

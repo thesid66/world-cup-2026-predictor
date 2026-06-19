@@ -2,6 +2,20 @@ import { calculateThirdPlaceRanking } from '../../logic/thirdPlaceRanking'
 import { usePredictionStore } from '../../store/predictionStore'
 import { TeamFlag } from '../ui/TeamFlag'
 
+type ThirdPlaceMiniStatProps = {
+  label: string
+  value: number
+}
+
+function ThirdPlaceMiniStat({ label, value }: ThirdPlaceMiniStatProps) {
+  return (
+    <div className="rounded-xl bg-white/6 px-2 py-2 text-center ring-1 ring-white/8">
+      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-black text-white">{value}</p>
+    </div>
+  )
+}
+
 export function ThirdPlaceRanking() {
   const scores = usePredictionStore((state) => state.scores)
   const rows = calculateThirdPlaceRanking(scores)
@@ -11,14 +25,16 @@ export function ThirdPlaceRanking() {
   const completeGroups = rows.filter((row) => row.isGroupComplete).length
 
   return (
-    <section className="mt-6 rounded-3xl border border-white/10 bg-white/8 p-5 shadow-xl backdrop-blur-xl">
+    <section className="mt-6 rounded-3xl border border-white/10 bg-white/8 p-4 shadow-xl backdrop-blur-xl sm:p-5">
       <div className="mb-5 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.3em] text-yellow-300">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-yellow-300 sm:text-sm sm:tracking-[0.3em]">
             Qualification race
           </p>
 
-          <h2 className="mt-2 text-3xl font-black text-white">Best third-placed teams</h2>
+          <h2 className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">
+            Best third-placed teams
+          </h2>
 
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
             The top 8 third-placed teams qualify for the Round of 32. Ranking is currently based on
@@ -27,15 +43,15 @@ export function ThirdPlaceRanking() {
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:min-w-80">
-          <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-4 text-center">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">
+          <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3 text-center sm:p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-200 sm:text-xs sm:tracking-[0.2em]">
               Qualifying
             </p>
             <p className="mt-1 text-3xl font-black text-white">{qualifiedCount}</p>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/8 p-4 text-center">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+          <div className="rounded-2xl border border-white/10 bg-white/8 p-3 text-center sm:p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 sm:text-xs sm:tracking-[0.2em]">
               Complete groups
             </p>
             <p className="mt-1 text-3xl font-black text-white">{completeGroups}/12</p>
@@ -43,7 +59,76 @@ export function ThirdPlaceRanking() {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-white/10">
+      <div className="grid gap-3 sm:hidden">
+        {rows.map((row, index) => {
+          const isQualified = row.qualificationStatus === 'qualified'
+
+          return (
+            <article
+              key={`${row.group}-${row.teamId}`}
+              className={`rounded-2xl border p-3 ${
+                isQualified
+                  ? 'border-emerald-300/20 bg-emerald-300/10'
+                  : 'border-white/10 bg-slate-950/45'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span
+                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-black ${
+                      isQualified ? 'bg-emerald-300 text-emerald-950' : 'bg-slate-800 text-slate-300'
+                    }`}
+                  >
+                    {index + 1}
+                  </span>
+
+                  <TeamFlag code={row.flagCode} label={row.teamName} />
+
+                  <div className="min-w-0">
+                    <p className="truncate font-black text-white">{row.teamName}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <p className="text-[10px] font-bold text-slate-500">{row.shortName}</p>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-black ${
+                          row.isGroupComplete ? 'bg-emerald-300/15 text-emerald-200' : 'bg-yellow-300/15 text-yellow-200'
+                        }`}
+                      >
+                        Group {row.group} · {row.isGroupComplete ? 'Complete' : 'Provisional'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-yellow-300/20 bg-yellow-300/10 px-3 py-2 text-center">
+                  <p className="text-[9px] font-black uppercase tracking-[0.14em] text-yellow-200">Pts</p>
+                  <p className="text-lg font-black text-yellow-300">{row.points}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-6 gap-2">
+                <ThirdPlaceMiniStat label="P" value={row.played} />
+                <ThirdPlaceMiniStat label="W" value={row.won} />
+                <ThirdPlaceMiniStat label="D" value={row.drawn} />
+                <ThirdPlaceMiniStat label="L" value={row.lost} />
+                <ThirdPlaceMiniStat label="GF" value={row.goalsFor} />
+                <ThirdPlaceMiniStat label="GD" value={row.goalDifference} />
+              </div>
+
+              <p
+                className={`mt-3 rounded-full px-3 py-2 text-center text-xs font-black ${
+                  isQualified
+                    ? 'bg-emerald-300/15 text-emerald-200 ring-1 ring-emerald-300/30'
+                    : 'bg-red-300/10 text-red-200 ring-1 ring-red-300/20'
+                }`}
+              >
+                {isQualified ? 'Round of 32' : 'Eliminated'}
+              </p>
+            </article>
+          )
+        })}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-2xl border border-white/10 sm:block">
         <table className="w-full min-w-[920px] border-collapse text-left text-sm">
           <thead className="bg-white/10 text-xs uppercase tracking-[0.18em] text-slate-400">
             <tr>

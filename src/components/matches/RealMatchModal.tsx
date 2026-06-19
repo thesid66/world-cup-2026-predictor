@@ -1,11 +1,16 @@
 import { RefreshCw, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { canFetchEspnWorldCupMatchData } from '../../services/espnWorldCup'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
+import type {
+  RealMatchCommentary,
+  RealMatchEvent,
+  RealMatchLineupPlayer,
+  RealMatchStatistic
+} from '../../types/realMatch'
 import type { Fixture, Team } from '../../types/tournament'
-import type { RealMatchEvent, RealMatchLineupPlayer, RealMatchStatistic } from '../../types/realMatch'
-import { canFetchEspnWorldCupMatchData } from '../../services/espnWorldCup'
 import { TeamFlag } from '../ui/TeamFlag'
 
 type RealMatchModalProps = {
@@ -43,7 +48,14 @@ const featuredStats = [
   'Corner Kicks',
   'Fouls',
   'Yellow Cards',
-  'Red Cards'
+  'Red Cards',
+  'Assists'
+]
+
+const modalSections = [
+  { id: 'real-match-comparison', label: 'Comparison' },
+  { id: 'real-match-lineups', label: 'Lineups' },
+  { id: 'real-match-timeline', label: 'Timeline' }
 ]
 
 function normalizeStatLabel(value: string) {
@@ -52,6 +64,27 @@ function normalizeStatLabel(value: string) {
 
 function normalizeTeamText(value?: string) {
   return String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function normaliseHexColor(value?: string, fallback = '#38bdf8') {
+  if (!value) return fallback
+
+  const cleaned = value.replace('#', '').trim()
+
+  if (/^[0-9a-f]{3}$/i.test(cleaned) || /^[0-9a-f]{6}$/i.test(cleaned)) {
+    return `#${cleaned}`
+  }
+
+  return fallback
+}
+
+function parseStatNumber(value: string | number | null | undefined) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (!value) return null
+
+  const parsedValue = Number(String(value).replace(/[^0-9.-]/g, ''))
+
+  return Number.isFinite(parsedValue) ? parsedValue : null
 }
 
 function getStatValue(stats: RealMatchStatistic[], type: string) {
@@ -76,6 +109,26 @@ function getAvailableStatTypes(homeStats: RealMatchStatistic[], awayStats: RealM
   return [...matchedFeaturedStats, ...extraStats]
 }
 
+function getComparisonShares(homeValue: string | number | null, awayValue: string | number | null) {
+  const homeNumber = parseStatNumber(homeValue)
+  const awayNumber = parseStatNumber(awayValue)
+
+  if (homeNumber === null || awayNumber === null) {
+    return undefined
+  }
+
+  const total = Math.abs(homeNumber) + Math.abs(awayNumber)
+
+  if (!total) {
+    return { home: 50, away: 50 }
+  }
+
+  return {
+    home: Math.max(8, (Math.abs(homeNumber) / total) * 100),
+    away: Math.max(8, (Math.abs(awayNumber) / total) * 100)
+  }
+}
+
 function hasUsableActualScore(
   score?: { home: number | null; away: number | null }
 ): score is UsableActualScore {
@@ -94,6 +147,10 @@ function isTimelineVar(event: RealMatchEvent) {
   return getTimelineTypeText(event).includes('var')
 }
 
+function isTimelinePenalty(event: RealMatchEvent) {
+  return getTimelineTypeText(event).includes('penalty')
+}
+
 function isTimelineRedCard(event: RealMatchEvent) {
   const typeText = getTimelineTypeText(event)
 
@@ -109,7 +166,7 @@ function isTimelineYellowCard(event: RealMatchEvent) {
 function isTimelineGoal(event: RealMatchEvent) {
   const typeText = getTimelineTypeText(event)
 
-  return typeText.includes('goal') && !typeText.includes('own goal cancelled')
+  return typeText.includes('goal') || typeText.includes('penalty - scored')
 }
 
 function getTimelineTypeLabel(event: RealMatchEvent) {
@@ -117,17 +174,18 @@ function getTimelineTypeLabel(event: RealMatchEvent) {
   if (isTimelineVar(event)) return 'VAR check'
   if (isTimelineRedCard(event)) return 'Red card'
   if (isTimelineYellowCard(event)) return 'Yellow card'
+  if (isTimelinePenalty(event)) return 'Penalty'
   if (isTimelineGoal(event)) return 'Goal'
 
   return event.type || 'Event'
 }
 
 function getTimelineEventStyle(event: RealMatchEvent): TimelineEventStyle {
-  if (isTimelineGoal(event)) {
+  if (isTimelineGoal(event) || isTimelinePenalty(event)) {
     return {
-      icon: '⚽',
+      icon: isTimelinePenalty(event) ? '◎' : '⚽',
       cardClass: 'border-emerald-300/25 bg-emerald-300/10',
-      iconClass: 'border-emerald-300/30 bg-emerald-300/20 text-xl',
+      iconClass: 'border-emerald-300/30 bg-emerald-300/20 text-xl text-emerald-50',
       labelClass: 'text-emerald-200',
       teamBadgeClass: 'bg-emerald-300/15 text-emerald-100'
     }
@@ -183,6 +241,8 @@ function getTimelineEventStyle(event: RealMatchEvent): TimelineEventStyle {
 }
 
 function getTimelineTimeLabel(event: RealMatchEvent) {
+  if (event.timeLabel) return event.timeLabel
+
   const minute = typeof event.elapsed === 'number' ? event.elapsed : '-'
   const extra = event.extra ? `+${event.extra}` : ''
 
@@ -214,6 +274,10 @@ function getGoalScorersForTeam(events: RealMatchEvent[], teamName?: string): Goa
       playerName: getTimelinePrimaryText(event) || 'Unknown scorer',
       timeLabel: getTimelineTimeLabel(event)
     }))
+}
+
+function scrollToModalSection(sectionId: string) {
+  document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 function renderGoalScorers(scorers: GoalScorerSummary[], alignment: 'left' | 'right') {
@@ -295,7 +359,7 @@ function renderSubstitutionDetails(event: RealMatchEvent) {
   )
 }
 
-function renderBenchPlayerList(players: RealMatchLineupPlayer[], emptyMessage: string) {
+function renderLineupPlayerList(players: RealMatchLineupPlayer[], emptyMessage: string) {
   if (!players.length) {
     return <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-500">{emptyMessage}</p>
   }
@@ -310,7 +374,10 @@ function renderBenchPlayerList(players: RealMatchLineupPlayer[], emptyMessage: s
           <p className="flex h-8 min-w-8 items-center justify-center rounded-full bg-white/8 px-2 text-xs font-black text-slate-300">
             {player.number ?? '-'}
           </p>
-          <p className="truncate text-sm font-black text-white">{player.name}</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-white">{player.name}</p>
+            {player.captain && <p className="text-[10px] font-black uppercase text-yellow-200">Captain</p>}
+          </div>
           {player.position && (
             <p className="rounded-full bg-sky-300/10 px-2 py-1 text-[10px] font-black uppercase text-sky-200">
               {player.position}
@@ -318,6 +385,121 @@ function renderBenchPlayerList(players: RealMatchLineupPlayer[], emptyMessage: s
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+function renderComparisonRow({
+  statType,
+  homeStats,
+  awayStats,
+  homeColor,
+  awayColor
+}: {
+  statType: string
+  homeStats: RealMatchStatistic[]
+  awayStats: RealMatchStatistic[]
+  homeColor: string
+  awayColor: string
+}) {
+  const homeValue = getStatValue(homeStats, statType)
+  const awayValue = getStatValue(awayStats, statType)
+  const shares = getComparisonShares(homeValue, awayValue)
+
+  return (
+    <div key={statType} className="rounded-2xl border border-white/10 bg-slate-950/45 p-3 sm:p-4">
+      <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+        <p className="text-right text-sm font-black text-white sm:text-base">{homeValue}</p>
+        <p className="min-w-28 text-center text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 sm:min-w-40 sm:text-xs">
+          {statType}
+        </p>
+        <p className="text-sm font-black text-white sm:text-base">{awayValue}</p>
+      </div>
+
+      {shares ? (
+        <div className="flex h-3 overflow-hidden rounded-full bg-white/10">
+          <div
+            className="transition-all"
+            style={{ width: `${shares.home}%`, backgroundColor: homeColor }}
+          />
+          <div
+            className="transition-all"
+            style={{ width: `${shares.away}%`, backgroundColor: awayColor }}
+          />
+        </div>
+      ) : (
+        <div className="h-3 rounded-full bg-white/10" />
+      )}
+    </div>
+  )
+}
+
+function renderTeamLineup({
+  title,
+  teamName,
+  formation,
+  coach,
+  starters,
+  substitutes,
+  accentClass
+}: {
+  title: string
+  teamName: string
+  formation?: string | null
+  coach?: string | null
+  starters: RealMatchLineupPlayer[]
+  substitutes: RealMatchLineupPlayer[]
+  accentClass: string
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className={`text-xs font-black uppercase tracking-[0.18em] ${accentClass}`}>{title}</p>
+          <h4 className="mt-1 text-lg font-black text-white">{teamName}</h4>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2 text-xs font-black text-slate-300">
+          {formation && <p className="rounded-full bg-white/8 px-3 py-1">{formation}</p>}
+          {coach && <p className="rounded-full bg-white/8 px-3 py-1">Coach: {coach}</p>}
+        </div>
+      </div>
+
+      <div className="grid gap-4">
+        <div>
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+            Starting XI
+          </p>
+          {renderLineupPlayerList(starters, 'Starting XI not available from ESPN yet.')}
+        </div>
+        <div>
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+            Bench
+          </p>
+          {renderLineupPlayerList(substitutes, 'Bench not available from ESPN yet.')}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function renderCommentaryItem(item: RealMatchCommentary, index: number) {
+  return (
+    <div
+      key={`${item.id ?? index}-${item.text}`}
+      className="rounded-2xl border border-white/10 bg-slate-950/45 p-4"
+    >
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+          {item.timeLabel || (typeof item.elapsed === 'number' ? `${item.elapsed}'` : 'Commentary')}
+        </p>
+        {item.teamName && (
+          <p className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-300">
+            {item.teamName}
+          </p>
+        )}
+      </div>
+      <p className="text-sm font-bold leading-6 text-slate-200">{item.text}</p>
+      {item.playerName && <p className="mt-2 text-xs font-black text-sky-200">{item.playerName}</p>}
     </div>
   )
 }
@@ -341,7 +523,7 @@ export function RealMatchModal({
   useEffect(() => {
     if (open) {
       const cachedMatch = useRealMatchStore.getState().matches[fixture.id]
-      const shouldForceRefresh = !cachedMatch?.statistics.length
+      const shouldForceRefresh = !cachedMatch?.statistics.length && !cachedMatch?.events.length
 
       void fetchMatchData(fixture, shouldForceRefresh)
     }
@@ -359,19 +541,22 @@ export function RealMatchModal({
   const homeStats = matchData?.statistics[0]?.statistics ?? []
   const awayStats = matchData?.statistics[1]?.statistics ?? []
   const availableStatTypes = getAvailableStatTypes(homeStats, awayStats)
+  const homeLineupPlayers = matchData?.lineups?.homeXi ?? []
+  const awayLineupPlayers = matchData?.lineups?.awayXi ?? []
   const homeBenchPlayers = matchData?.lineups?.homeSubs ?? []
   const awayBenchPlayers = matchData?.lineups?.awaySubs ?? []
-  const hasBenchSummary = Boolean(homeBenchPlayers.length || awayBenchPlayers.length)
+  const hasLineupSummary = Boolean(
+    homeLineupPlayers.length || awayLineupPlayers.length || homeBenchPlayers.length || awayBenchPlayers.length
+  )
   const hasEspnData = canFetchEspnWorldCupMatchData(fixture)
   const isLoadRealDataDisabled = !hasEspnData || loading || copyingRealData
-  const homeScorers = getGoalScorersForTeam(
-    matchData?.events ?? [],
-    matchData?.homeTeam.name ?? homeTeam?.name
-  )
-  const awayScorers = getGoalScorersForTeam(
-    matchData?.events ?? [],
-    matchData?.awayTeam.name ?? awayTeam?.name
-  )
+  const homeDisplayName = matchData?.homeTeam.name ?? homeTeam?.name ?? 'Home'
+  const awayDisplayName = matchData?.awayTeam.name ?? awayTeam?.name ?? 'Away'
+  const homeColor = normaliseHexColor(matchData?.homeTeam.color, '#10b981')
+  const awayColor = normaliseHexColor(matchData?.awayTeam.color, '#38bdf8')
+  const homeScorers = getGoalScorersForTeam(matchData?.events ?? [], homeDisplayName)
+  const awayScorers = getGoalScorersForTeam(matchData?.events ?? [], awayDisplayName)
+  const hasTimelineContent = Boolean(matchData?.events.length || matchData?.commentary?.length)
 
   async function handleLoadRealData() {
     if (!hasEspnData || copyingRealData) return
@@ -406,19 +591,24 @@ export function RealMatchModal({
       onClick={onClose}
     >
       <article
-        className="max-h-[94svh] w-full max-w-5xl overflow-y-auto rounded-t-3xl border border-white/10 bg-slate-950 shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem]"
+        className="max-h-[94svh] w-full max-w-5xl scroll-smooth overflow-y-auto rounded-t-3xl border border-white/10 bg-slate-950 shadow-2xl sm:max-h-[90vh] sm:rounded-[2rem]"
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/95 p-5 backdrop-blur-xl">
+        <header className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/95 p-4 backdrop-blur-xl sm:p-5">
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.3em] text-yellow-300">
                 ESPN match data
               </p>
               <h2 className="mt-2 text-2xl font-black text-white">Match {fixture.matchNumber}</h2>
               <p className="mt-1 text-sm font-bold text-slate-500">
-                {fixture.venue}, {fixture.city}
+                {matchData?.venue ?? fixture.venue}, {matchData?.venueCity || fixture.city}
               </p>
+              {matchData?.broadcasts?.length ? (
+                <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                  Watch: {matchData.broadcasts.slice(0, 4).join(' · ')}
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap items-center justify-end gap-2">
@@ -450,6 +640,19 @@ export function RealMatchModal({
             </div>
           </div>
 
+          <nav className="mt-4 flex gap-2 overflow-x-auto pb-1">
+            {modalSections.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => scrollToModalSection(section.id)}
+                className="shrink-0 rounded-full border border-white/10 bg-white/8 px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-300 transition hover:border-sky-300/30 hover:bg-sky-300/10 hover:text-sky-100"
+              >
+                {section.label}
+              </button>
+            ))}
+          </nav>
+
           {loadRealDataStatus !== 'idle' && (
             <p
               className={`mt-3 text-right text-xs font-bold ${
@@ -469,16 +672,23 @@ export function RealMatchModal({
           )}
         </header>
 
-        <div className="p-5">
+        <div className="p-4 sm:p-5">
           <section className="rounded-3xl border border-white/10 bg-white/8 p-5">
             <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 sm:gap-4">
               <div className="min-w-0 text-center sm:flex sm:items-start sm:gap-3 sm:text-left">
                 <div className="mb-2 flex justify-center sm:mb-0">
-                  <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="md" />
+                  <TeamFlag code={homeTeam?.flagCode} label={homeDisplayName} size="md" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-black text-white sm:text-lg">{homeTeam?.name}</p>
-                  <p className="text-[10px] font-bold text-slate-500 sm:text-xs">{homeTeam?.shortName}</p>
+                  <p className="truncate text-xs font-black text-white sm:text-lg">{homeDisplayName}</p>
+                  <p className="text-[10px] font-bold text-slate-500 sm:text-xs">
+                    {matchData?.homeTeam.record ? `Record: ${matchData.homeTeam.record}` : homeTeam?.shortName}
+                  </p>
+                  {matchData?.homeTeam.form && (
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+                      Form: {matchData.homeTeam.form}
+                    </p>
+                  )}
                   {renderGoalScorers(homeScorers, 'left')}
                 </div>
               </div>
@@ -497,15 +707,28 @@ export function RealMatchModal({
 
               <div className="min-w-0 text-center sm:flex sm:items-start sm:justify-end sm:gap-3 sm:text-right">
                 <div className="mb-2 flex justify-center sm:order-2 sm:mb-0">
-                  <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="md" />
+                  <TeamFlag code={awayTeam?.flagCode} label={awayDisplayName} size="md" />
                 </div>
                 <div className="min-w-0 sm:order-1">
-                  <p className="truncate text-xs font-black text-white sm:text-lg">{awayTeam?.name}</p>
-                  <p className="text-[10px] font-bold text-slate-500 sm:text-xs">{awayTeam?.shortName}</p>
+                  <p className="truncate text-xs font-black text-white sm:text-lg">{awayDisplayName}</p>
+                  <p className="text-[10px] font-bold text-slate-500 sm:text-xs">
+                    {matchData?.awayTeam.record ? `Record: ${matchData.awayTeam.record}` : awayTeam?.shortName}
+                  </p>
+                  {matchData?.awayTeam.form && (
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+                      Form: {matchData.awayTeam.form}
+                    </p>
+                  )}
                   {renderGoalScorers(awayScorers, 'right')}
                 </div>
               </div>
             </div>
+
+            {matchData?.headline && (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/45 p-4">
+                <p className="text-sm font-bold leading-6 text-slate-200">{matchData.headline}</p>
+              </div>
+            )}
 
             {!hasEspnData && (
               <div className="mt-5 rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4">
@@ -528,74 +751,94 @@ export function RealMatchModal({
             )}
           </section>
 
-          <section className="mt-5 rounded-3xl border border-white/10 bg-white/8 p-5">
-            <div className="mb-4">
-              <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-300">
-                Match statistics
-              </p>
-              <h3 className="mt-1 text-xl font-black text-white">
-                {availableStatTypes.length ? 'Team comparison' : 'Substitute benches'}
-              </h3>
+          <section
+            id="real-match-comparison"
+            className="mt-5 scroll-mt-40 rounded-3xl border border-white/10 bg-white/8 p-5"
+          >
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.3em] text-sky-300">
+                  Comparison
+                </p>
+                <h3 className="mt-1 text-xl font-black text-white">Team comparison</h3>
+              </div>
+              <div className="flex items-center gap-3 text-xs font-black text-slate-400">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: homeColor }} />
+                  {homeTeam?.shortName ?? homeDisplayName}
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: awayColor }} />
+                  {awayTeam?.shortName ?? awayDisplayName}
+                </span>
+              </div>
             </div>
 
             {availableStatTypes.length ? (
               <div className="grid gap-3">
-                {availableStatTypes.map((statType) => (
-                  <div
-                    key={statType}
-                    className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 rounded-2xl border border-white/10 bg-slate-950/45 p-3"
-                  >
-                    <p className="text-right text-sm font-black text-white">
-                      {getStatValue(homeStats, statType)}
-                    </p>
-                    <p className="min-w-40 text-center text-xs font-black uppercase tracking-[0.16em] text-slate-500">
-                      {statType}
-                    </p>
-                    <p className="text-sm font-black text-white">{getStatValue(awayStats, statType)}</p>
-                  </div>
-                ))}
-              </div>
-            ) : hasBenchSummary ? (
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200">
-                      Home subs
-                    </p>
-                    <p className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-300">
-                      {homeTeam?.shortName ?? matchData?.homeTeam.name ?? 'Home'}
-                    </p>
-                  </div>
-                  {renderBenchPlayerList(homeBenchPlayers, 'No home bench data available.')}
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-slate-950/45 p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-200">
-                      Away subs
-                    </p>
-                    <p className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-300">
-                      {awayTeam?.shortName ?? matchData?.awayTeam.name ?? 'Away'}
-                    </p>
-                  </div>
-                  {renderBenchPlayerList(awayBenchPlayers, 'No away bench data available.')}
-                </div>
+                {availableStatTypes.map((statType) =>
+                  renderComparisonRow({ statType, homeStats, awayStats, homeColor, awayColor })
+                )}
               </div>
             ) : (
               <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-400">
                 {loading
                   ? 'Loading team comparison from ESPN...'
-                  : 'Statistics and substitute benches will appear here when ESPN has data for this fixture.'}
+                  : 'Team comparison will appear here when ESPN has match statistics for this fixture.'}
               </p>
             )}
           </section>
 
-          <section className="mt-5 rounded-3xl border border-white/10 bg-white/8 p-5">
+          <section
+            id="real-match-lineups"
+            className="mt-5 scroll-mt-40 rounded-3xl border border-white/10 bg-white/8 p-5"
+          >
+            <div className="mb-4">
+              <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-300">
+                Lineups
+              </p>
+              <h3 className="mt-1 text-xl font-black text-white">Starting XI and bench</h3>
+            </div>
+
+            {hasLineupSummary ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                {renderTeamLineup({
+                  title: 'Home lineup',
+                  teamName: homeDisplayName,
+                  formation: matchData?.lineups?.homeFormation,
+                  coach: matchData?.lineups?.homeCoach,
+                  starters: homeLineupPlayers,
+                  substitutes: homeBenchPlayers,
+                  accentClass: 'text-emerald-200'
+                })}
+                {renderTeamLineup({
+                  title: 'Away lineup',
+                  teamName: awayDisplayName,
+                  formation: matchData?.lineups?.awayFormation,
+                  coach: matchData?.lineups?.awayCoach,
+                  starters: awayLineupPlayers,
+                  substitutes: awayBenchPlayers,
+                  accentClass: 'text-sky-200'
+                })}
+              </div>
+            ) : (
+              <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-400">
+                {loading
+                  ? 'Checking ESPN lineup data...'
+                  : 'Lineups will appear here when ESPN exposes starting XI or bench data for this match.'}
+              </p>
+            )}
+          </section>
+
+          <section
+            id="real-match-timeline"
+            className="mt-5 scroll-mt-40 rounded-3xl border border-white/10 bg-white/8 p-5"
+          >
             <div className="mb-4">
               <p className="text-xs font-black uppercase tracking-[0.3em] text-emerald-300">
-                Events
+                Timeline
               </p>
-              <h3 className="mt-1 text-xl font-black text-white">Match timeline</h3>
+              <h3 className="mt-1 text-xl font-black text-white">Events and commentary</h3>
             </div>
 
             {matchData?.events.length ? (
@@ -656,9 +899,27 @@ export function RealMatchModal({
                   )
                 })}
               </div>
-            ) : (
+            ) : null}
+
+            {matchData?.commentary?.length ? (
+              <div className={matchData.events.length ? 'mt-5 border-t border-white/10 pt-5' : ''}>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                    Commentary
+                  </p>
+                  <p className="rounded-full bg-white/8 px-3 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                    ESPN feed
+                  </p>
+                </div>
+                <div className="grid gap-3">
+                  {matchData.commentary.map(renderCommentaryItem)}
+                </div>
+              </div>
+            ) : null}
+
+            {!hasTimelineContent && (
               <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-400">
-                Goals, cards, VAR checks and substitutions will appear here when available.
+                Goals, cards, VAR checks, substitutions and ESPN commentary will appear here when available.
               </p>
             )}
           </section>

@@ -23,6 +23,12 @@ type UsableActualScore = {
   away: number
 }
 
+type RealStatusLike = {
+  long?: string
+  short?: string
+  elapsed?: number | null
+}
+
 function parseScoreValue(value: string): number | null {
   if (value === '') return null
 
@@ -67,6 +73,56 @@ function getCountdownLabel(fixture: Fixture, now: number) {
   return `Kickoff in ${formatCountdownTime(millisecondsToKickoff)}`
 }
 
+function normalizeStatusText(status?: RealStatusLike) {
+  return `${status?.short ?? ''} ${status?.long ?? ''}`.toLowerCase()
+}
+
+function isFullTimeStatus(status?: RealStatusLike) {
+  const text = normalizeStatusText(status)
+  return text.includes('ft') || text.includes('full time') || text.includes('final')
+}
+
+function isLiveStatus(status?: RealStatusLike) {
+  if (!status || isFullTimeStatus(status)) return false
+  const text = normalizeStatusText(status)
+  return text.includes('live') || text.includes('half') || text.includes('progress') || typeof status.elapsed === 'number'
+}
+
+function getStatusLabel(status?: RealStatusLike) {
+  if (!status) return null
+
+  if (isLiveStatus(status) && typeof status.elapsed === 'number') {
+    const shortLabel = status.short && !/^live$/i.test(status.short) ? status.short : null
+    return shortLabel || `LIVE ${status.elapsed}'`
+  }
+
+  return status.short || status.long || null
+}
+
+function getStatusDetail(status?: RealStatusLike) {
+  if (!status) return null
+
+  const label = getStatusLabel(status)
+  const detail = status.long && status.long !== label ? status.long : null
+  const elapsed = typeof status.elapsed === 'number' && !String(label ?? '').includes(`${status.elapsed}`)
+    ? `${status.elapsed}'`
+    : null
+
+  return [detail, elapsed].filter(Boolean).join(' · ') || null
+}
+
+function getStatusPillClass(status?: RealStatusLike) {
+  if (isLiveStatus(status)) {
+    return 'border-red-300/30 bg-red-400/15 text-red-100 shadow-red-950/20'
+  }
+
+  if (isFullTimeStatus(status)) {
+    return 'border-emerald-300/30 bg-emerald-300/15 text-emerald-100 shadow-emerald-950/20'
+  }
+
+  return 'border-sky-300/25 bg-sky-300/10 text-sky-100 shadow-sky-950/20'
+}
+
 export function MatchScoreCard({
   fixture,
   homeTeam,
@@ -91,6 +147,9 @@ export function MatchScoreCard({
   const hasEspnData = canFetchEspnWorldCupMatchData(fixture)
   const isLoadRealDataDisabled = !hasEspnData || realMatchLoading || copyingRealData
   const countdownLabel = showCountdown ? getCountdownLabel(fixture, currentTime) : null
+  const statusLabel = getStatusLabel(realMatch?.status)
+  const statusDetail = getStatusDetail(realMatch?.status)
+  const statusPillClass = getStatusPillClass(realMatch?.status)
 
   const actualScoreLabel = realMatch
     ? realMatch.score.display
@@ -177,6 +236,14 @@ export function MatchScoreCard({
               Group {fixture.group}
             </span>
 
+            {statusLabel && (
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.12em] shadow-lg ${statusPillClass}`}
+              >
+                {statusLabel}
+              </span>
+            )}
+
             <span className="min-w-0 text-xs font-bold text-slate-500">{fixture.city}</span>
           </div>
 
@@ -235,7 +302,13 @@ export function MatchScoreCard({
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">
                 Actual
               </p>
-              <p className="mt-0.5 text-sm font-black text-white">{actualScoreLabel}</p>
+              {statusLabel && (
+                <p className={`mx-auto mt-1 w-fit rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${statusPillClass}`}>
+                  {statusLabel}
+                </p>
+              )}
+              <p className="mt-1 text-sm font-black text-white">{actualScoreLabel}</p>
+              {statusDetail && <p className="mt-0.5 text-[10px] font-bold text-slate-400">{statusDetail}</p>}
             </div>
           </div>
 

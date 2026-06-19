@@ -5,7 +5,7 @@ import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import type { Fixture, Team } from '../../types/tournament'
 import type { RealMatchEvent, RealMatchLineupPlayer, RealMatchStatistic } from '../../types/realMatch'
-import { canFetchSportScoreMatchData } from '../../services/sportScore'
+import { canFetchEspnWorldCupMatchData } from '../../services/espnWorldCup'
 import { TeamFlag } from '../ui/TeamFlag'
 
 type RealMatchModalProps = {
@@ -196,13 +196,8 @@ function getTimelinePrimaryText(event: RealMatchEvent) {
 function getTimelineMetaParts(event: RealMatchEvent) {
   const parts: string[] = []
 
-  if (event.assistName) {
-    parts.push(`Assist: ${event.assistName}`)
-  }
-
-  if (event.scoreDisplay) {
-    parts.push(`Score: ${event.scoreDisplay}`)
-  }
+  if (event.assistName) parts.push(`Assist: ${event.assistName}`)
+  if (event.scoreDisplay) parts.push(`Score: ${event.scoreDisplay}`)
 
   return parts
 }
@@ -210,9 +205,7 @@ function getTimelineMetaParts(event: RealMatchEvent) {
 function getGoalScorersForTeam(events: RealMatchEvent[], teamName?: string): GoalScorerSummary[] {
   const normalizedTeamName = normalizeTeamText(teamName)
 
-  if (!normalizedTeamName) {
-    return []
-  }
+  if (!normalizedTeamName) return []
 
   return events
     .filter(isTimelineGoal)
@@ -224,9 +217,7 @@ function getGoalScorersForTeam(events: RealMatchEvent[], teamName?: string): Goa
 }
 
 function renderGoalScorers(scorers: GoalScorerSummary[], alignment: 'left' | 'right') {
-  if (!scorers.length) {
-    return null
-  }
+  if (!scorers.length) return null
 
   return (
     <div className={`mt-2 grid gap-1 ${alignment === 'right' ? 'justify-items-end' : ''}`}>
@@ -269,9 +260,7 @@ function renderSubstitutionDetails(event: RealMatchEvent) {
   const playerIn = event.playerName
   const playerOut = event.secondaryPlayerName
 
-  if (!playerIn && !playerOut) {
-    return null
-  }
+  if (!playerIn && !playerOut) return null
 
   return (
     <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -280,7 +269,6 @@ function renderSubstitutionDetails(event: RealMatchEvent) {
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-300/20 text-lg font-black text-emerald-100">
             ↗
           </span>
-
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-200">
               Player in
@@ -295,7 +283,6 @@ function renderSubstitutionDetails(event: RealMatchEvent) {
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-300/20 text-lg font-black text-red-100">
             ↙
           </span>
-
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-red-200">
               Player out
@@ -323,9 +310,7 @@ function renderBenchPlayerList(players: RealMatchLineupPlayer[], emptyMessage: s
           <p className="flex h-8 min-w-8 items-center justify-center rounded-full bg-white/8 px-2 text-xs font-black text-slate-300">
             {player.number ?? '-'}
           </p>
-
           <p className="truncate text-sm font-black text-white">{player.name}</p>
-
           {player.position && (
             <p className="rounded-full bg-sky-300/10 px-2 py-1 text-[10px] font-black uppercase text-sky-200">
               {player.position}
@@ -369,9 +354,7 @@ export function RealMatchModal({
     }
   }, [open])
 
-  if (!open) {
-    return null
-  }
+  if (!open) return null
 
   const homeStats = matchData?.statistics[0]?.statistics ?? []
   const awayStats = matchData?.statistics[1]?.statistics ?? []
@@ -379,8 +362,8 @@ export function RealMatchModal({
   const homeBenchPlayers = matchData?.lineups?.homeSubs ?? []
   const awayBenchPlayers = matchData?.lineups?.awaySubs ?? []
   const hasBenchSummary = Boolean(homeBenchPlayers.length || awayBenchPlayers.length)
-  const hasSportScoreData = canFetchSportScoreMatchData(fixture)
-  const isLoadRealDataDisabled = !hasSportScoreData || loading || copyingRealData
+  const hasEspnData = canFetchEspnWorldCupMatchData(fixture)
+  const isLoadRealDataDisabled = !hasEspnData || loading || copyingRealData
   const homeScorers = getGoalScorersForTeam(
     matchData?.events ?? [],
     matchData?.homeTeam.name ?? homeTeam?.name
@@ -391,9 +374,7 @@ export function RealMatchModal({
   )
 
   async function handleLoadRealData() {
-    if (!hasSportScoreData || copyingRealData) {
-      return
-    }
+    if (!hasEspnData || copyingRealData) return
 
     setCopyingRealData(true)
     setLoadRealDataStatus('idle')
@@ -432,11 +413,9 @@ export function RealMatchModal({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.3em] text-yellow-300">
-                SportScore match data
+                ESPN match data
               </p>
-
               <h2 className="mt-2 text-2xl font-black text-white">Match {fixture.matchNumber}</h2>
-
               <p className="mt-1 text-sm font-bold text-slate-500">
                 {fixture.venue}, {fixture.city}
               </p>
@@ -497,14 +476,9 @@ export function RealMatchModal({
                 <div className="mb-2 flex justify-center sm:mb-0">
                   <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="md" />
                 </div>
-
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-black text-white sm:text-lg">
-                    {homeTeam?.name}
-                  </p>
-                  <p className="text-[10px] font-bold text-slate-500 sm:text-xs">
-                    {homeTeam?.shortName}
-                  </p>
+                  <p className="truncate text-xs font-black text-white sm:text-lg">{homeTeam?.name}</p>
+                  <p className="text-[10px] font-bold text-slate-500 sm:text-xs">{homeTeam?.shortName}</p>
                   {renderGoalScorers(homeScorers, 'left')}
                 </div>
               </div>
@@ -513,11 +487,9 @@ export function RealMatchModal({
                 <p className="w-full text-center text-[9px] font-black uppercase tracking-[0.14em] text-yellow-200 sm:text-xs sm:tracking-[0.2em]">
                   Actual
                 </p>
-
                 <p className="mt-1 w-full whitespace-nowrap text-center text-2xl font-black text-white sm:text-4xl">
                   {matchData?.score.display ?? '- - -'}
                 </p>
-
                 <p className="mx-auto mt-1 w-full max-w-[88px] truncate text-center text-[10px] font-bold text-slate-400 sm:max-w-none sm:text-xs">
                   {matchData?.status.long ?? 'Not loaded'}
                 </p>
@@ -527,23 +499,18 @@ export function RealMatchModal({
                 <div className="mb-2 flex justify-center sm:order-2 sm:mb-0">
                   <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="md" />
                 </div>
-
                 <div className="min-w-0 sm:order-1">
-                  <p className="truncate text-xs font-black text-white sm:text-lg">
-                    {awayTeam?.name}
-                  </p>
-                  <p className="text-[10px] font-bold text-slate-500 sm:text-xs">
-                    {awayTeam?.shortName}
-                  </p>
+                  <p className="truncate text-xs font-black text-white sm:text-lg">{awayTeam?.name}</p>
+                  <p className="text-[10px] font-bold text-slate-500 sm:text-xs">{awayTeam?.shortName}</p>
                   {renderGoalScorers(awayScorers, 'right')}
                 </div>
               </div>
             </div>
 
-            {!hasSportScoreData && (
+            {!hasEspnData && (
               <div className="mt-5 rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4">
                 <p className="text-sm font-bold leading-6 text-yellow-100">
-                  SportScore data is not available for this fixture yet.
+                  ESPN World Cup data is not available for this fixture yet.
                 </p>
               </div>
             )}
@@ -556,9 +523,7 @@ export function RealMatchModal({
 
             {loading && (
               <div className="mt-5 rounded-2xl border border-sky-300/20 bg-sky-300/10 p-4">
-                <p className="text-sm font-bold leading-6 text-sky-100">
-                  Loading SportScore data...
-                </p>
+                <p className="text-sm font-bold leading-6 text-sky-100">Loading ESPN data...</p>
               </div>
             )}
           </section>
@@ -583,14 +548,10 @@ export function RealMatchModal({
                     <p className="text-right text-sm font-black text-white">
                       {getStatValue(homeStats, statType)}
                     </p>
-
                     <p className="min-w-40 text-center text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                       {statType}
                     </p>
-
-                    <p className="text-sm font-black text-white">
-                      {getStatValue(awayStats, statType)}
-                    </p>
+                    <p className="text-sm font-black text-white">{getStatValue(awayStats, statType)}</p>
                   </div>
                 ))}
               </div>
@@ -605,7 +566,6 @@ export function RealMatchModal({
                       {homeTeam?.shortName ?? matchData?.homeTeam.name ?? 'Home'}
                     </p>
                   </div>
-
                   {renderBenchPlayerList(homeBenchPlayers, 'No home bench data available.')}
                 </div>
 
@@ -618,15 +578,14 @@ export function RealMatchModal({
                       {awayTeam?.shortName ?? matchData?.awayTeam.name ?? 'Away'}
                     </p>
                   </div>
-
                   {renderBenchPlayerList(awayBenchPlayers, 'No away bench data available.')}
                 </div>
               </div>
             ) : (
               <p className="rounded-2xl bg-slate-950/45 p-4 text-sm font-bold text-slate-400">
                 {loading
-                  ? 'Loading team comparison from SportScore...'
-                  : 'Statistics and substitute benches will appear here when SportScore has data for this fixture.'}
+                  ? 'Loading team comparison from ESPN...'
+                  : 'Statistics and substitute benches will appear here when ESPN has data for this fixture.'}
               </p>
             )}
           </section>
@@ -658,7 +617,6 @@ export function RealMatchModal({
                         >
                           {renderTimelineIcon(eventStyle)}
                         </div>
-
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
@@ -669,7 +627,6 @@ export function RealMatchModal({
                                 {getTimelineTimeLabel(event)}
                               </p>
                             </div>
-
                             {event.teamName && (
                               <p
                                 className={`rounded-full px-3 py-1 text-xs font-black ${eventStyle.teamBadgeClass}`}
@@ -678,23 +635,18 @@ export function RealMatchModal({
                               </p>
                             )}
                           </div>
-
                           {isSubstitution ? (
                             renderSubstitutionDetails(event)
                           ) : (
                             primaryText && (
-                              <p className="mt-2 text-sm font-bold text-slate-300">
-                                {primaryText}
-                              </p>
+                              <p className="mt-2 text-sm font-bold text-slate-300">{primaryText}</p>
                             )
                           )}
-
                           {metaParts.length > 0 && (
                             <p className="mt-2 text-xs font-bold text-slate-400">
                               {metaParts.join(' · ')}
                             </p>
                           )}
-
                           {event.detail && event.detail !== primaryText && (
                             <p className="mt-1 text-xs font-bold text-slate-500">{event.detail}</p>
                           )}

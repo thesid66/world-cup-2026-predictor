@@ -38,8 +38,6 @@ type DatabaseGroup = {
 type DatabaseApiFixtureMapping = {
   local_fixture_id: string
   api_fixture_id: number | null
-  api_fixture_slug: string | null
-  api_match_url: string | null
 }
 
 export type TournamentData = {
@@ -47,8 +45,6 @@ export type TournamentData = {
   groups: Group[]
   fixtures: Fixture[]
   apiFootballFixtureIdMap: Record<string, number>
-  sportScoreFixtureSlugMap: Record<string, string>
-  sportScoreFixtureUrlMap: Record<string, string>
   source: 'database' | 'local'
 }
 
@@ -144,34 +140,12 @@ function buildApiFootballFixtureIdMap(rows: DatabaseApiFixtureMapping[]) {
   }, {})
 }
 
-function buildSportScoreFixtureSlugMap(rows: DatabaseApiFixtureMapping[]) {
-  return rows.reduce<Record<string, string>>((map, row) => {
-    if (row.api_fixture_slug) {
-      map[row.local_fixture_id] = row.api_fixture_slug
-    }
-
-    return map
-  }, {})
-}
-
-function buildSportScoreFixtureUrlMap(rows: DatabaseApiFixtureMapping[]) {
-  return rows.reduce<Record<string, string>>((map, row) => {
-    if (row.api_match_url) {
-      map[row.local_fixture_id] = row.api_match_url
-    }
-
-    return map
-  }, {})
-}
-
 function getLocalTournamentData(): TournamentData {
   return {
     teams: localTeams,
     groups: localGroups,
     fixtures: localFixtures,
     apiFootballFixtureIdMap: localApiFootballFixtureIdMap,
-    sportScoreFixtureSlugMap: {},
-    sportScoreFixtureUrlMap: {},
     source: 'local'
   }
 }
@@ -186,7 +160,7 @@ export async function loadTournamentData(): Promise<TournamentData> {
       supabase.from('teams').select('*').order('name'),
       supabase.from('groups').select('*').order('sort_order'),
       supabase.from('fixtures').select('*').order('match_number'),
-      supabase.from('api_fixture_mappings').select('*')
+      supabase.from('api_fixture_mappings').select('local_fixture_id, api_fixture_id')
     ])
 
     if (
@@ -211,8 +185,6 @@ export async function loadTournamentData(): Promise<TournamentData> {
       groups: databaseGroups.map(mapDatabaseGroup),
       fixtures: databaseFixtures.map(mapDatabaseFixture),
       apiFootballFixtureIdMap: buildApiFootballFixtureIdMap(databaseMappings),
-      sportScoreFixtureSlugMap: buildSportScoreFixtureSlugMap(databaseMappings),
-      sportScoreFixtureUrlMap: buildSportScoreFixtureUrlMap(databaseMappings),
       source: 'database'
     }
   } catch {

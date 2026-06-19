@@ -26,24 +26,24 @@ export function GroupStandingsSection() {
               </p>
             </div>
 
-            <div className="grid gap-2 text-center lg:justify-self-end min-w-[100px]">
-              <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-200">
+            <div className="grid grid-cols-3 gap-2 text-center lg:w-[15rem] lg:grid-cols-1 lg:justify-self-end">
+              <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-2 py-3 sm:px-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-200 sm:tracking-[0.15em]">
                   1st - 2nd
                 </p>
-                <p className="mt-1 text-xs font-bold text-slate-300">Qualify</p>
+                <p className="mt-1 text-[11px] font-bold text-slate-300 sm:text-xs">Qualify</p>
               </div>
-              <div className="rounded-xl border border-yellow-300/20 bg-yellow-300/10 px-3 py-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-yellow-200">
+              <div className="rounded-xl border border-yellow-300/20 bg-yellow-300/10 px-2 py-3 sm:px-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-yellow-200 sm:tracking-[0.15em]">
                   3rd
                 </p>
-                <p className="mt-1 text-xs font-bold text-slate-300">Best third</p>
+                <p className="mt-1 text-[11px] font-bold text-slate-300 sm:text-xs">Best third</p>
               </div>
-              <div className="rounded-xl border border-red-300/20 bg-red-300/10 px-3 py-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-red-200">
+              <div className="rounded-xl border border-red-300/20 bg-red-300/10 px-2 py-3 sm:px-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-red-200 sm:tracking-[0.15em]">
                   4th
                 </p>
-                <p className="mt-1 text-xs font-bold text-slate-300">Out</p>
+                <p className="mt-1 text-[11px] font-bold text-slate-300 sm:text-xs">Out</p>
               </div>
             </div>
           </div>

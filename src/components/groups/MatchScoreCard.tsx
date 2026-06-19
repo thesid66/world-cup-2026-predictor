@@ -1,8 +1,8 @@
-import { useState, type MouseEvent } from 'react'
+import { useEffect, useState, type MouseEvent } from 'react'
 import type { Fixture, Team } from '../../types/tournament'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
-import { formatLocalFixtureDateTime } from '../../utils/fixtureTime'
+import { formatLocalFixtureDateTime, getFixtureKickoffDate } from '../../utils/fixtureTime'
 import { canFetchSportScoreMatchData } from '../../services/sportScore'
 import { RealMatchModal } from '../matches/RealMatchModal'
 import { TeamFlag } from '../ui/TeamFlag'
@@ -13,6 +13,7 @@ type MatchScoreCardProps = {
   awayTeam?: Team
   domId?: string
   highlighted?: boolean
+  showCountdown?: boolean
 }
 
 type LoadRealDataStatus = 'idle' | 'copied' | 'unavailable' | 'error'
@@ -40,16 +41,56 @@ function hasUsableActualScore(
   return typeof score?.home === 'number' && typeof score.away === 'number'
 }
 
+function formatCountdownTime(milliseconds: number) {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000))
+  const days = Math.floor(totalSeconds / 86400)
+  const hours = Math.floor((totalSeconds % 86400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`
+  }
+
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`
+  }
+
+  return `${seconds}s`
+}
+
+function getCountdownLabel(fixture: Fixture, now: number) {
+  const kickoffDate = getFixtureKickoffDate(fixture)
+
+  if (!kickoffDate) {
+    return null
+  }
+
+  const millisecondsToKickoff = kickoffDate.getTime() - now
+
+  if (millisecondsToKickoff <= 0) {
+    return 'Kickoff reached'
+  }
+
+  return `Kickoff in ${formatCountdownTime(millisecondsToKickoff)}`
+}
+
 export function MatchScoreCard({
   fixture,
   homeTeam,
   awayTeam,
   domId,
-  highlighted = false
+  highlighted = false,
+  showCountdown = false
 }: MatchScoreCardProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [loadRealDataStatus, setLoadRealDataStatus] = useState<LoadRealDataStatus>('idle')
   const [copyingRealData, setCopyingRealData] = useState(false)
+  const [currentTime, setCurrentTime] = useState(Date.now())
 
   const score = usePredictionStore((state) => state.scores[fixture.id])
   const updateScore = usePredictionStore((state) => state.updateScore)
@@ -61,6 +102,7 @@ export function MatchScoreCard({
   const isCompleted = typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
   const hasSportScoreData = canFetchSportScoreMatchData(fixture)
   const isLoadRealDataDisabled = !hasSportScoreData || realMatchLoading || copyingRealData
+  const countdownLabel = showCountdown ? getCountdownLabel(fixture, currentTime) : null
 
   const actualScoreLabel = realMatch
     ? realMatch.score.display
@@ -69,6 +111,22 @@ export function MatchScoreCard({
         ? 'Loading...'
         : 'Not loaded'
       : 'Not linked'
+
+  useEffect(() => {
+    if (!showCountdown) {
+      return
+    }
+
+    const timer = window.setInterval(() => {
+      setCurrentTime(Date.now())
+    }, 1000)
+
+    setCurrentTime(Date.now())
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [showCountdown])
 
   async function handleLoadRealData(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation()
@@ -139,6 +197,12 @@ export function MatchScoreCard({
 
             <span className="text-xs font-bold text-slate-500">{fixture.city}</span>
           </div>
+
+          {countdownLabel && (
+            <span className="rounded-full border border-yellow-300/25 bg-yellow-300/10 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-yellow-100">
+              {countdownLabel}
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">

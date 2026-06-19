@@ -337,6 +337,10 @@ function normalizeEspnStatus(status: EspnCompetitionStatus | undefined): RealMat
   }
 }
 
+function hasStarted(status: RealMatchStatus) {
+  return status.short !== 'NS'
+}
+
 function normalizeStatName(stat: { name?: string; abbreviation?: string }) {
   const compact = String(stat.name || stat.abbreviation || '')
     .toLowerCase()
@@ -418,7 +422,7 @@ function normalizeEventType(detail: EspnCompetitionDetail) {
   return type
 }
 
-function normalizeEspnEvents(competition: EspnCompetition, reverseTeamOrder: boolean): RealMatchEvent[] {
+function normalizeEspnEvents(competition: EspnCompetition): RealMatchEvent[] {
   if (!competition.details?.length) return []
 
   return competition.details
@@ -426,7 +430,6 @@ function normalizeEspnEvents(competition: EspnCompetition, reverseTeamOrder: boo
       const eventType = normalizeEventType(detail)
       const player = detail.athletesInvolved?.[0]
       const team = getCompetitorByTeamId(competition, detail.team?.id || player?.team?.id)
-      const teamName = team?.team?.displayName || team?.team?.name
       const displayClock = detail.clock?.displayValue
       const elapsed = parseElapsedFromClock(displayClock)
       const detailParts = [
@@ -436,7 +439,7 @@ function normalizeEspnEvents(competition: EspnCompetition, reverseTeamOrder: boo
 
       return {
         elapsed,
-        teamName,
+        teamName: team?.team?.displayName || team?.team?.name,
         teamLogo: team?.team?.logo,
         playerName: player?.displayName || player?.fullName || player?.shortName,
         type: eventType,
@@ -445,24 +448,6 @@ function normalizeEspnEvents(competition: EspnCompetition, reverseTeamOrder: boo
       }
     })
     .filter((event) => event.type || event.playerName || event.detail)
-    .map((event) => {
-      if (!reverseTeamOrder) return event
-
-      const home = getHomeCompetitor(competition)
-      const away = getAwayCompetitor(competition)
-      const homeName = home?.team?.displayName || home?.team?.name
-      const awayName = away?.team?.displayName || away?.team?.name
-
-      if (event.teamName === homeName) {
-        return { ...event, teamName: awayName, teamLogo: away?.team?.logo }
-      }
-
-      if (event.teamName === awayName) {
-        return { ...event, teamName: homeName, teamLogo: home?.team?.logo }
-      }
-
-      return event
-    })
 }
 
 function buildEmptyLineups(): RealMatchLineups | undefined {
@@ -481,14 +466,15 @@ function normalizeEspnMatchData(event: EspnEvent, fixture: Fixture, fetchedAt: s
   const away = getAwayCompetitor(competition)
   const displayHome = reverseTeamOrder ? away : home
   const displayAway = reverseTeamOrder ? home : away
-  const homeScore = parseScore(displayHome?.score)
-  const awayScore = parseScore(displayAway?.score)
+  const status = normalizeEspnStatus(competition.status)
+  const homeScore = hasStarted(status) ? parseScore(displayHome?.score) : null
+  const awayScore = hasStarted(status) ? parseScore(displayAway?.score) : null
 
   return {
     provider: 'espn',
     apiFixtureId: event.id || competition.id || fixture.id,
     fetchedAt,
-    status: normalizeEspnStatus(competition.status),
+    status,
     homeTeam: {
       id: displayHome?.id ?? displayHome?.team?.id,
       name: displayHome?.team?.displayName || displayHome?.team?.name || getTeam(fixture.homeTeamId)?.name || 'Home',
@@ -505,7 +491,7 @@ function normalizeEspnMatchData(event: EspnEvent, fixture: Fixture, fetchedAt: s
       display: formatScore(homeScore, awayScore)
     },
     statistics: normalizeEspnStatistics(competition, reverseTeamOrder),
-    events: normalizeEspnEvents(competition, reverseTeamOrder),
+    events: normalizeEspnEvents(competition),
     lineups: buildEmptyLineups()
   }
 }

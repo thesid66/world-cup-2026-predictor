@@ -26,7 +26,13 @@ export function GroupStandingsSection() {
               </p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-center lg:w-[15rem] lg:grid-cols-1 lg:justify-self-end">
+            <div className="grid grid-cols-4 gap-2 text-center lg:w-[15rem] lg:grid-cols-1 lg:justify-self-end">
+              <div className="rounded-xl border border-emerald-300/30 bg-emerald-300/15 px-2 py-3 sm:px-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-100 sm:tracking-[0.15em]">
+                  Q
+                </p>
+                <p className="mt-1 text-[11px] font-bold text-slate-300 sm:text-xs">Qualified</p>
+              </div>
               <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-2 py-3 sm:px-3">
                 <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-200 sm:tracking-[0.15em]">
                   1st - 2nd

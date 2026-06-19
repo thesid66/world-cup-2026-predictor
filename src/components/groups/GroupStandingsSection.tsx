@@ -21,12 +21,12 @@ export function GroupStandingsSection() {
               </h2>
 
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-                These tables update automatically from your score predictions. First and second place
-                qualify directly, while third place enters the best-third ranking.
+                These tables update automatically from your score predictions. First and second
+                place qualify directly, while third place enters the best-third ranking.
               </p>
             </div>
 
-            <div className="grid gap-2 text-left lg:justify-self-end lg:text-right">
+            <div className="grid gap-2 text-center lg:justify-self-end lg:text-right min-w-sm">
               <div className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-3">
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-emerald-200">
                   1st - 2nd
@@ -34,11 +34,15 @@ export function GroupStandingsSection() {
                 <p className="mt-1 text-xs font-bold text-slate-300">Qualify</p>
               </div>
               <div className="rounded-xl border border-yellow-300/20 bg-yellow-300/10 px-3 py-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-yellow-200">3rd</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-yellow-200">
+                  3rd
+                </p>
                 <p className="mt-1 text-xs font-bold text-slate-300">Best third</p>
               </div>
               <div className="rounded-xl border border-red-300/20 bg-red-300/10 px-3 py-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-red-200">4th</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-red-200">
+                  4th
+                </p>
                 <p className="mt-1 text-xs font-bold text-slate-300">Out</p>
               </div>
             </div>

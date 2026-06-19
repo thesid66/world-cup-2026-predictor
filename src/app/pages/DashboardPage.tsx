@@ -87,8 +87,8 @@ export function DashboardPage() {
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
             {liveFixture
-              ? 'A loaded SportScore match is currently marked live. Open the card for timeline, score and match details.'
-              : 'No live SportScore match is currently loaded. The next scheduled fixture is shown below with a live kickoff countdown.'}
+              ? 'A loaded ESPN match is currently marked live. Open the card for timeline, score and match details.'
+              : 'No live ESPN match is currently loaded. The next scheduled fixture is shown below with a live kickoff countdown.'}
           </p>
         </div>
 

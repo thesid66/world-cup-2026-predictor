@@ -28,6 +28,26 @@ function parseScoreValue(value: string): number | null {
   return parsed
 }
 
+function getTeamSeedDescription(team: QualifiedTeamRow) {
+  const status = team.isGroupComplete ? 'Qualified' : 'Qualified · provisional slot'
+
+  return `${team.seedLabel} · ${team.shortName} · ${status}`
+}
+
+function QualifiedPill({ provisional }: { provisional: boolean }) {
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.1em] ring-1 ${
+        provisional
+          ? 'bg-sky-300/10 text-sky-100 ring-sky-300/25'
+          : 'bg-emerald-300/15 text-emerald-100 ring-emerald-300/30'
+      }`}
+    >
+      {provisional ? 'Q · provisional' : 'Q'}
+    </span>
+  )
+}
+
 function TeamSide({
   team,
   fallbackLabel,
@@ -37,6 +57,8 @@ function TeamSide({
   fallbackLabel: string
   align?: 'left' | 'right'
 }) {
+  const provisional = Boolean(team && !team.isGroupComplete)
+
   return (
     <div
       className={`flex min-w-0 items-center gap-2 sm:gap-3 ${
@@ -46,11 +68,16 @@ function TeamSide({
       {align === 'left' && <TeamFlag code={team?.flagCode} label={team?.teamName} size="lg" />}
 
       <div className="min-w-0">
-        <p className="break-words text-sm font-black leading-tight text-white sm:truncate sm:text-base">
-          {team ? team.teamName : fallbackLabel}
-        </p>
-        <p className="text-[11px] font-bold text-slate-500 sm:text-xs">
-          {team ? `${team.seedLabel} · ${team.shortName}` : 'Pending'}
+        <div className={`flex flex-wrap items-center gap-2 ${align === 'right' ? 'justify-end' : ''}`}>
+          <p className="break-words text-sm font-black leading-tight text-white sm:truncate sm:text-base">
+            {team ? team.teamName : fallbackLabel}
+          </p>
+
+          {team && <QualifiedPill provisional={provisional} />}
+        </div>
+
+        <p className="mt-1 text-[11px] font-bold text-slate-500 sm:text-xs">
+          {team ? getTeamSeedDescription(team) : 'Pending'}
         </p>
       </div>
 
@@ -152,7 +179,7 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
 
         {!hasBothTeams && (
           <p className="rounded-xl bg-yellow-300/10 px-3 py-3 text-center text-xs font-bold leading-5 text-yellow-100 sm:text-left">
-            Complete the previous stage first to resolve this match.
+            Complete or mathematically resolve the previous stage to resolve this match.
           </p>
         )}
 

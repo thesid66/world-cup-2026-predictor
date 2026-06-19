@@ -38,11 +38,17 @@ function TeamSide({
   align?: 'left' | 'right'
 }) {
   return (
-    <div className={`flex items-center gap-3 ${align === 'right' ? 'justify-end text-right' : ''}`}>
+    <div
+      className={`flex min-w-0 items-center gap-3 ${
+        align === 'right' ? 'justify-end text-right' : ''
+      }`}
+    >
       {align === 'left' && <TeamFlag code={team?.flagCode} label={team?.teamName} size="lg" />}
 
-      <div>
-        <p className="font-black text-white">{team ? team.teamName : fallbackLabel}</p>
+      <div className="min-w-0">
+        <p className="break-words text-sm font-black leading-tight text-white sm:truncate sm:text-base">
+          {team ? team.teamName : fallbackLabel}
+        </p>
         <p className="text-xs font-bold text-slate-500">
           {team ? `${team.seedLabel} · ${team.shortName}` : 'Pending'}
         </p>
@@ -60,7 +66,6 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
 
   const hasBothTeams = Boolean(match.homeTeam && match.awayTeam)
   const hasBothScores = typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
-
   const isDraw = hasBothScores && score?.homeScore === score?.awayScore && hasBothTeams
 
   const winner = getKnockoutMatchWinner({
@@ -69,13 +74,30 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
   })
 
   return (
-    <article className="rounded-2xl border border-white/10 bg-slate-950/45 p-4 shadow-lg">
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.25em] text-yellow-300">
+    <article
+      className={`group overflow-hidden rounded-2xl border p-4 shadow-lg transition hover:-translate-y-0.5 ${
+        winner
+          ? 'border-emerald-300/25 bg-emerald-300/10'
+          : hasBothTeams
+            ? 'border-white/10 bg-slate-950/45 hover:border-yellow-300/25 hover:bg-white/8'
+            : 'border-white/10 bg-slate-950/35 opacity-90'
+      }`}
+    >
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-black ${
+              winner
+                ? 'bg-emerald-300 text-emerald-950'
+                : 'bg-yellow-300/10 text-yellow-200 ring-1 ring-yellow-300/20'
+            }`}
+          >
             Match {match.matchNumber}
-          </p>
-          <p className="mt-1 text-xs font-bold text-slate-500">{stageLabels[match.stage]}</p>
+          </span>
+
+          <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-400">
+            {stageLabels[match.stage]}
+          </span>
         </div>
 
         {winner && (
@@ -85,73 +107,83 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
         )}
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
         <TeamSide team={match.homeTeam} fallbackLabel={match.homeLabel} />
 
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            min={0}
-            disabled={!hasBothTeams}
-            value={score?.homeScore ?? ''}
-            onChange={(event) =>
-              updateScore(match.id, 'homeScore', parseScoreValue(event.target.value))
-            }
-            className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10 disabled:cursor-not-allowed disabled:opacity-40"
-          />
+        <div className="col-span-2 row-start-2 mx-auto w-full max-w-[16rem] rounded-2xl border border-white/10 bg-black/20 p-2 sm:col-span-1 sm:row-start-auto sm:w-auto sm:max-w-none">
+          <div className="flex items-center justify-center gap-2">
+            <input
+              type="number"
+              min={0}
+              disabled={!hasBothTeams}
+              value={score?.homeScore ?? ''}
+              onChange={(event) =>
+                updateScore(match.id, 'homeScore', parseScoreValue(event.target.value))
+              }
+              className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10 disabled:cursor-not-allowed disabled:opacity-40"
+            />
 
-          <span className="font-black text-slate-500">:</span>
+            <span className="font-black text-slate-500">:</span>
 
-          <input
-            type="number"
-            min={0}
-            disabled={!hasBothTeams}
-            value={score?.awayScore ?? ''}
-            onChange={(event) =>
-              updateScore(match.id, 'awayScore', parseScoreValue(event.target.value))
-            }
-            className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10 disabled:cursor-not-allowed disabled:opacity-40"
-          />
-        </div>
-
-        <TeamSide team={match.awayTeam} fallbackLabel={match.awayLabel} align="right" />
-      </div>
-
-      {!hasBothTeams && (
-        <p className="mt-4 rounded-xl bg-yellow-300/10 px-3 py-2 text-xs font-bold text-yellow-100">
-          Complete the previous stage first to resolve this match.
-        </p>
-      )}
-
-      {isDraw && match.homeTeam && match.awayTeam && (
-        <div className="mt-4 rounded-xl border border-yellow-300/20 bg-yellow-300/10 p-3">
-          <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-yellow-200">
-            Draw after score — select winner
-          </p>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            {[match.homeTeam, match.awayTeam].map((team) => {
-              const isSelected = score?.winnerTeamId === team.teamId
-
-              return (
-                <button
-                  key={team.teamId}
-                  type="button"
-                  onClick={() => setWinnerTeam(match.id, team.teamId)}
-                  className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-black transition ${
-                    isSelected
-                      ? 'bg-emerald-300 text-emerald-950'
-                      : 'bg-white/10 text-white hover:bg-white/15'
-                  }`}
-                >
-                  <TeamFlag code={team.flagCode} label={team.teamName} />
-                  {team.teamName}
-                </button>
-              )
-            })}
+            <input
+              type="number"
+              min={0}
+              disabled={!hasBothTeams}
+              value={score?.awayScore ?? ''}
+              onChange={(event) =>
+                updateScore(match.id, 'awayScore', parseScoreValue(event.target.value))
+              }
+              className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10 disabled:cursor-not-allowed disabled:opacity-40"
+            />
           </div>
         </div>
-      )}
+
+        <div className="col-start-2 row-start-1 sm:col-start-auto sm:row-start-auto">
+          <TeamSide team={match.awayTeam} fallbackLabel={match.awayLabel} align="right" />
+        </div>
+      </div>
+
+      <div className="relative mt-8 border-t border-white/10 pt-8 sm:mt-6 sm:pt-5">
+        <span className="absolute left-3 right-3 top-0 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-center text-[9px] font-black uppercase tracking-[0.12em] text-yellow-200 shadow-lg sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:whitespace-nowrap sm:text-[10px] sm:tracking-[0.18em]">
+          Knockout fixture
+        </span>
+
+        {!hasBothTeams && (
+          <p className="rounded-xl bg-yellow-300/10 px-3 py-2 text-xs font-bold text-yellow-100">
+            Complete the previous stage first to resolve this match.
+          </p>
+        )}
+
+        {isDraw && match.homeTeam && match.awayTeam && (
+          <div className="rounded-xl border border-yellow-300/20 bg-yellow-300/10 p-3">
+            <p className="mb-3 text-xs font-black uppercase tracking-[0.2em] text-yellow-200">
+              Draw after score — select advancing team
+            </p>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[match.homeTeam, match.awayTeam].map((team) => {
+                const isSelected = score?.winnerTeamId === team.teamId
+
+                return (
+                  <button
+                    key={team.teamId}
+                    type="button"
+                    onClick={() => setWinnerTeam(match.id, team.teamId)}
+                    className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-black transition ${
+                      isSelected
+                        ? 'bg-emerald-300 text-emerald-950'
+                        : 'bg-white/10 text-white hover:bg-white/15'
+                    }`}
+                  >
+                    <TeamFlag code={team.flagCode} label={team.teamName} />
+                    {team.teamName}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </article>
   )
 }

@@ -56,6 +56,36 @@ function getEspnLookupFixture(fixture: Fixture): Fixture {
   }
 }
 
+function cleanGoalScorerName(value: string) {
+  return value
+    .replace(/^\s*(goal|penalty\s*-\s*scored)\s*:\s*/i, '')
+    .replace(/^\s*(own goal)\s*:\s*/i, '')
+    .trim()
+}
+
+function cleanRealMatchData(matchData: RealMatchData): RealMatchData {
+  return {
+    ...matchData,
+    events: matchData.events.map((event) => {
+      const typeText = `${event.type ?? ''} ${event.detail ?? ''}`.toLowerCase()
+      const isGoalEvent = typeText.includes('goal') || typeText.includes('penalty - scored')
+
+      if (!isGoalEvent) {
+        return event
+      }
+
+      const cleanedPlayerName = event.playerName ? cleanGoalScorerName(event.playerName) : event.playerName
+      const cleanedDisplayText = event.displayText ? cleanGoalScorerName(event.displayText) : event.displayText
+
+      return {
+        ...event,
+        playerName: cleanedPlayerName || event.playerName,
+        displayText: cleanedDisplayText || cleanedPlayerName || event.displayText
+      }
+    })
+  }
+}
+
 export const useRealMatchStore = create<RealMatchState>()(
   persist(
     (set, get) => ({
@@ -92,7 +122,7 @@ export const useRealMatchStore = create<RealMatchState>()(
         }))
 
         try {
-          const data = await fetchEspnWorldCupMatchDataForFixture(lookupFixture)
+          const data = cleanRealMatchData(await fetchEspnWorldCupMatchDataForFixture(lookupFixture))
 
           set((state) => ({
             matches: { ...state.matches, [fixture.id]: data },
@@ -114,6 +144,6 @@ export const useRealMatchStore = create<RealMatchState>()(
         set({ matches: {}, loading: {}, errors: {} })
       }
     }),
-    { name: 'world-cup-2026-real-match-cache-v6' }
+    { name: 'world-cup-2026-real-match-cache-v7' }
   )
 )

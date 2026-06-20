@@ -53,6 +53,15 @@ function getTournamentDateFromKickoffDate(kickoffDate: Date) {
 }
 
 function getEspnLookupFixture(fixture: Fixture): Fixture {
+  if (fixture.id === 'match-032') {
+    return {
+      ...fixture,
+      date: '2026-06-19',
+      kickoffTime: '11:00 PM ET',
+      kickoffTimeSort: '23:00'
+    }
+  }
+
   const kickoffDate = getFixtureKickoffDate(fixture)
 
   if (!kickoffDate) {
@@ -421,6 +430,6 @@ export const useRealMatchStore = create<RealMatchState>()(
         set({ matches: {}, loading: {}, errors: {} })
       }
     }),
-    { name: 'world-cup-2026-real-match-cache-v10' }
+    { name: 'world-cup-2026-real-match-cache-v11' }
   )
 )

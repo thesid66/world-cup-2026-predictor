@@ -333,7 +333,7 @@ export function MatchScoreCard({
           <p>{fixture.venue}</p>
         </div>
 
-        {hasEspnData && !isCompleted && !hideLoadRealDataButton && (
+        {hasEspnData && !hideLoadRealDataButton && (
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
               type="button"

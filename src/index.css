@@ -41,27 +41,38 @@ body {
 @keyframes live-golden-shadow-pulse {
   0%,
   100% {
+    background-color: rgba(250, 204, 21, 0.12);
     box-shadow:
-      0 0 0 1px rgba(247, 201, 72, 0.18),
-      0 0 22px rgba(247, 201, 72, 0.22),
-      0 22px 55px rgba(0, 0, 0, 0.34);
+      0 0 0 1px rgba(250, 204, 21, 0.35),
+      0 0 24px rgba(250, 204, 21, 0.28),
+      0 18px 48px rgba(0, 0, 0, 0.38);
+    outline-color: rgba(250, 204, 21, 0.34);
   }
 
   50% {
+    background-color: rgba(250, 204, 21, 0.28);
     box-shadow:
-      0 0 0 1px rgba(247, 201, 72, 0.42),
-      0 0 42px rgba(247, 201, 72, 0.48),
-      0 26px 70px rgba(247, 201, 72, 0.18);
+      0 0 0 2px rgba(250, 204, 21, 0.72),
+      0 0 54px rgba(250, 204, 21, 0.72),
+      0 0 120px rgba(250, 204, 21, 0.34),
+      0 28px 72px rgba(250, 204, 21, 0.2);
+    outline-color: rgba(250, 204, 21, 0.76);
   }
 }
 
 .live-golden-shadow {
-  animation: live-golden-shadow-pulse 2.4s ease-in-out infinite;
+  animation: live-golden-shadow-pulse 1.6s ease-in-out infinite !important;
+  background-image:
+    radial-gradient(circle at top left, rgba(250, 204, 21, 0.22), transparent 40%),
+    linear-gradient(135deg, rgba(250, 204, 21, 0.16), rgba(120, 53, 15, 0.12)) !important;
+  outline: 2px solid rgba(250, 204, 21, 0.35) !important;
+  outline-offset: 2px !important;
+  will-change: background-color, box-shadow, outline-color;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .live-golden-shadow {
-    animation: none;
+    animation: none !important;
   }
 }
 

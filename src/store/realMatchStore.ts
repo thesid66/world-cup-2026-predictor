@@ -6,6 +6,9 @@ import type { Fixture } from '../types/tournament'
 
 const REAL_MATCH_CACHE_TTL_MS = 60 * 1000
 const ONE_DAY_MS = 24 * 60 * 60 * 1000
+const FALLBACK_HOME_COLOR = '10b981'
+const FALLBACK_AWAY_COLOR = '38bdf8'
+const SIMILAR_COLOR_DISTANCE_THRESHOLD = 90
 
 type RealMatchState = {
   matches: Record<string, RealMatchData>
@@ -13,6 +16,12 @@ type RealMatchState = {
   errors: Record<string, string | null>
   fetchMatchData: (fixture: Fixture, force?: boolean) => Promise<void>
   clearRealMatchCache: () => void
+}
+
+type RgbColor = {
+  r: number
+  g: number
+  b: number
 }
 
 function isRealMatchCacheFresh(matchData: RealMatchData) {
@@ -53,6 +62,84 @@ function getEspnLookupFixture(fixture: Fixture): Fixture {
     ...fixture,
     date: addDaysToFixtureDate(fixture.date, 1),
     kickoffTimeSort: '00:00'
+  }
+}
+
+function normalizeHexColor(value: string | undefined, fallback: string) {
+  const cleaned = String(value ?? '').replace('#', '').trim()
+
+  if (/^[0-9a-f]{3}$/i.test(cleaned)) {
+    return cleaned
+      .split('')
+      .map((character) => `${character}${character}`)
+      .join('')
+      .toLowerCase()
+  }
+
+  if (/^[0-9a-f]{6}$/i.test(cleaned)) {
+    return cleaned.toLowerCase()
+  }
+
+  return fallback.toLowerCase()
+}
+
+function hexToRgb(value: string): RgbColor {
+  const normalized = normalizeHexColor(value, FALLBACK_AWAY_COLOR)
+
+  return {
+    r: Number.parseInt(normalized.slice(0, 2), 16),
+    g: Number.parseInt(normalized.slice(2, 4), 16),
+    b: Number.parseInt(normalized.slice(4, 6), 16)
+  }
+}
+
+function getColorDistance(firstColor: string, secondColor: string) {
+  const first = hexToRgb(firstColor)
+  const second = hexToRgb(secondColor)
+
+  return Math.sqrt(
+    (first.r - second.r) ** 2 +
+      (first.g - second.g) ** 2 +
+      (first.b - second.b) ** 2
+  )
+}
+
+function areColorsSimilar(firstColor: string, secondColor: string) {
+  return getColorDistance(firstColor, secondColor) < SIMILAR_COLOR_DISTANCE_THRESHOLD
+}
+
+function resolveDistinctTeamColors(matchData: RealMatchData) {
+  const homePrimaryColor = normalizeHexColor(matchData.homeTeam.color, FALLBACK_HOME_COLOR)
+  const awayPrimaryColor = normalizeHexColor(matchData.awayTeam.color, FALLBACK_AWAY_COLOR)
+  const homeAlternateColor = normalizeHexColor(matchData.homeTeam.alternateColor, FALLBACK_HOME_COLOR)
+  const awayAlternateColor = normalizeHexColor(matchData.awayTeam.alternateColor, FALLBACK_AWAY_COLOR)
+
+  if (!areColorsSimilar(homePrimaryColor, awayPrimaryColor)) {
+    return {
+      homeColor: homePrimaryColor,
+      awayColor: awayPrimaryColor
+    }
+  }
+
+  if (!areColorsSimilar(homePrimaryColor, awayAlternateColor)) {
+    return {
+      homeColor: homePrimaryColor,
+      awayColor: awayAlternateColor
+    }
+  }
+
+  if (!areColorsSimilar(homeAlternateColor, awayPrimaryColor)) {
+    return {
+      homeColor: homeAlternateColor,
+      awayColor: awayPrimaryColor
+    }
+  }
+
+  return {
+    homeColor: homePrimaryColor,
+    awayColor: areColorsSimilar(homePrimaryColor, FALLBACK_AWAY_COLOR)
+      ? FALLBACK_HOME_COLOR
+      : FALLBACK_AWAY_COLOR
   }
 }
 
@@ -205,9 +292,18 @@ function sortEventsByMinute(events: RealMatchEvent[]) {
 function cleanRealMatchData(matchData: RealMatchData): RealMatchData {
   const cleanedEvents = matchData.events.map(cleanTimelineEvent)
   const substitutionEvents = deriveSubstitutionEvents(matchData, cleanedEvents)
+  const { homeColor, awayColor } = resolveDistinctTeamColors(matchData)
 
   return {
     ...matchData,
+    homeTeam: {
+      ...matchData.homeTeam,
+      color: homeColor
+    },
+    awayTeam: {
+      ...matchData.awayTeam,
+      color: awayColor
+    },
     events: sortEventsByMinute([...cleanedEvents, ...substitutionEvents])
   }
 }
@@ -270,6 +366,6 @@ export const useRealMatchStore = create<RealMatchState>()(
         set({ matches: {}, loading: {}, errors: {} })
       }
     }),
-    { name: 'world-cup-2026-real-match-cache-v8' }
+    { name: 'world-cup-2026-real-match-cache-v9' }
   )
 )

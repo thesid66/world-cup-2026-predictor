@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { MatchScoreCard } from '../../components/groups/MatchScoreCard'
 import { useTournamentData } from '../../context/TournamentDataContext'
 import { usePredictionStore } from '../../store/predictionStore'
@@ -70,6 +70,7 @@ function isLiveRealMatch(realMatch?: RealMatchData) {
 export function DashboardPage() {
   const scores = usePredictionStore((state) => state.scores)
   const realMatches = useRealMatchStore((state) => state.matches)
+  const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
   const { teams, groups, fixtures } = useTournamentData()
 
   const completedMatches = fixtures.filter((fixture) => isFixtureScoreCompleted(fixture.id, scores)).length
@@ -77,6 +78,18 @@ export function DashboardPage() {
   const nextFixture = useMemo(() => getNextFixture(groupStageFixtures), [groupStageFixtures])
 
   const liveFixture = groupStageFixtures.find((fixture) => isLiveRealMatch(realMatches[fixture.id]))
+
+  useEffect(() => {
+    if (!liveFixture) {
+      return undefined
+    }
+
+    const intervalId = window.setInterval(() => {
+      void fetchMatchData(liveFixture, true)
+    }, 1000)
+
+    return () => window.clearInterval(intervalId)
+  }, [fetchMatchData, liveFixture])
 
   const featuredFixture = liveFixture ?? nextFixture
   const featuredHomeTeam = teams.find((team) => team.id === featuredFixture?.homeTeamId)

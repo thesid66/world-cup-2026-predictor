@@ -8,6 +8,7 @@ import type { RealMatchData } from '../../types/realMatch'
 import type { Fixture } from '../../types/tournament'
 
 const MATCH_LIVE_LOOKUP_WINDOW_MS = 3 * 60 * 60 * 1000
+const LIVE_MATCH_AUTO_REFRESH_MS = 15 * 1000
 
 function isFixtureScoreCompleted(
   fixtureId: string,
@@ -30,6 +31,10 @@ function getNextFixture(fixtures: Fixture[]) {
     .sort((a, b) => a.kickoffDate.getTime() - b.kickoffDate.getTime())
 
   return datedFixtures.find((entry) => entry.kickoffDate.getTime() >= now)?.fixture ?? null
+}
+
+function getFixtureKickoffTime(fixture: Fixture) {
+  return getFixtureKickoffDate(fixture)?.getTime() ?? null
 }
 
 function getRealMatchStatusText(realMatch?: RealMatchData) {
@@ -70,20 +75,33 @@ function isLiveRealMatch(realMatch?: RealMatchData) {
   )
 }
 
-function isLikelyLiveFixture(fixture: Fixture, realMatch?: RealMatchData) {
+function isLikelyLiveFixture(fixture: Fixture, realMatch?: RealMatchData, now = Date.now()) {
   if (realMatch && isCompletedRealMatch(realMatch)) {
     return false
   }
 
-  const kickoffDate = getFixtureKickoffDate(fixture)
+  const kickoffTime = getFixtureKickoffTime(fixture)
 
-  if (!kickoffDate) {
+  if (!kickoffTime) {
     return false
   }
 
-  const elapsedSinceKickoff = Date.now() - kickoffDate.getTime()
+  const elapsedSinceKickoff = now - kickoffTime
 
   return elapsedSinceKickoff >= 0 && elapsedSinceKickoff <= MATCH_LIVE_LOOKUP_WINDOW_MS
+}
+
+function getLatestMatchingFixture(
+  fixtures: Fixture[],
+  predicate: (fixture: Fixture) => boolean
+) {
+  return fixtures
+    .map((fixture) => ({ fixture, kickoffTime: getFixtureKickoffTime(fixture) }))
+    .filter(
+      (entry): entry is { fixture: Fixture; kickoffTime: number } =>
+        typeof entry.kickoffTime === 'number' && predicate(entry.fixture)
+    )
+    .sort((a, b) => b.kickoffTime - a.kickoffTime)[0]?.fixture ?? null
 }
 
 export function DashboardPage() {
@@ -95,8 +113,14 @@ export function DashboardPage() {
   const groupStageFixtures = fixtures.filter((fixture) => fixture.stage === 'group')
   const nextFixture = useMemo(() => getNextFixture(groupStageFixtures), [groupStageFixtures])
 
-  const loadedLiveFixture = groupStageFixtures.find((fixture) => isLiveRealMatch(realMatches[fixture.id]))
-  const likelyLiveFixture = groupStageFixtures.find((fixture) => isLikelyLiveFixture(fixture, realMatches[fixture.id]))
+  const loadedLiveFixture = getLatestMatchingFixture(
+    groupStageFixtures,
+    (fixture) => isLiveRealMatch(realMatches[fixture.id])
+  )
+  const likelyLiveFixture = getLatestMatchingFixture(
+    groupStageFixtures,
+    (fixture) => isLikelyLiveFixture(fixture, realMatches[fixture.id])
+  )
   const liveFixture = loadedLiveFixture ?? likelyLiveFixture
   const liveMatch = liveFixture ? realMatches[liveFixture.id] : undefined
 
@@ -105,7 +129,7 @@ export function DashboardPage() {
       return undefined
     }
 
-    const intervalId = window.setInterval(() => {
+    const refreshLiveFixture = () => {
       const latestState = useRealMatchStore.getState()
       const latestRealMatch = latestState.matches[liveFixture.id]
 
@@ -113,12 +137,15 @@ export function DashboardPage() {
         return
       }
 
-      if (latestRealMatch && !isLiveRealMatch(latestRealMatch)) {
+      if (latestRealMatch && !isLiveRealMatch(latestRealMatch) && !isLikelyLiveFixture(liveFixture, latestRealMatch)) {
         return
       }
 
       void latestState.fetchMatchData(liveFixture, true, { silent: true })
-    }, 1000)
+    }
+
+    refreshLiveFixture()
+    const intervalId = window.setInterval(refreshLiveFixture, LIVE_MATCH_AUTO_REFRESH_MS)
 
     return () => window.clearInterval(intervalId)
   }, [liveFixture])
@@ -174,7 +201,7 @@ export function DashboardPage() {
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
               {liveFixture
-                ? 'This dashboard is watching the live match window and refreshing ESPN data while the fixture remains in progress.'
+                ? 'This dashboard is watching the most recent live match window and refreshing ESPN data while the fixture remains in progress.'
                 : 'No live ESPN match is currently loaded. The next scheduled fixture is shown below with a kickoff countdown.'}
             </p>
           </div>

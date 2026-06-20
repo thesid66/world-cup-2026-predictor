@@ -14,6 +14,7 @@ type MatchScoreCardProps = {
   domId?: string
   highlighted?: boolean
   showCountdown?: boolean
+  hideLoadRealDataButton?: boolean
 }
 
 type LoadRealDataStatus = 'idle' | 'copied' | 'unavailable' | 'error'
@@ -61,18 +62,6 @@ function formatCountdownTime(milliseconds: number) {
   return `${seconds}s`
 }
 
-function getCountdownLabel(fixture: Fixture, now: number) {
-  const kickoffDate = getFixtureKickoffDate(fixture)
-
-  if (!kickoffDate) return null
-
-  const millisecondsToKickoff = kickoffDate.getTime() - now
-
-  if (millisecondsToKickoff <= 0) return 'Kickoff reached'
-
-  return `Kickoff in ${formatCountdownTime(millisecondsToKickoff)}`
-}
-
 function normalizeStatusText(status?: RealStatusLike) {
   return `${status?.short ?? ''} ${status?.long ?? ''}`.toLowerCase()
 }
@@ -111,6 +100,24 @@ function getStatusDetail(status?: RealStatusLike) {
   return [detail, elapsed].filter(Boolean).join(' · ') || null
 }
 
+function getCountdownLabel(fixture: Fixture, now: number, status?: RealStatusLike) {
+  const kickoffDate = getFixtureKickoffDate(fixture)
+
+  if (!kickoffDate) return null
+
+  const millisecondsToKickoff = kickoffDate.getTime() - now
+
+  if (millisecondsToKickoff <= 0) {
+    if (status && !isFullTimeStatus(status)) {
+      return getStatusDetail(status) || getStatusLabel(status) || 'Match in progress'
+    }
+
+    return 'Match started'
+  }
+
+  return `Kickoff in ${formatCountdownTime(millisecondsToKickoff)}`
+}
+
 function getStatusPillClass(status?: RealStatusLike) {
   if (isLiveStatus(status)) {
     return 'border-red-300/30 bg-red-400/15 text-red-100 shadow-red-950/20'
@@ -129,7 +136,8 @@ export function MatchScoreCard({
   awayTeam,
   domId,
   highlighted = false,
-  showCountdown = false
+  showCountdown = false,
+  hideLoadRealDataButton = false
 }: MatchScoreCardProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [loadRealDataStatus, setLoadRealDataStatus] = useState<LoadRealDataStatus>('idle')
@@ -147,10 +155,10 @@ export function MatchScoreCard({
   const savedScoreLabel = isCompleted ? `${score.homeScore} - ${score.awayScore}` : null
   const hasEspnData = canFetchEspnWorldCupMatchData(fixture)
   const isLoadRealDataDisabled = !hasEspnData || realMatchLoading || copyingRealData
-  const countdownLabel = showCountdown ? getCountdownLabel(fixture, currentTime) : null
   const statusLabel = getStatusLabel(realMatch?.status)
   const statusDetail = getStatusDetail(realMatch?.status)
   const statusPillClass = getStatusPillClass(realMatch?.status)
+  const countdownLabel = showCountdown ? getCountdownLabel(fixture, currentTime, realMatch?.status) : null
 
   const actualScoreLabel = realMatch
     ? realMatch.score.display
@@ -321,7 +329,7 @@ export function MatchScoreCard({
           <p>{fixture.venue}</p>
         </div>
 
-        {hasEspnData && !isCompleted && (
+        {hasEspnData && !isCompleted && !hideLoadRealDataButton && (
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
               type="button"

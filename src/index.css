@@ -38,6 +38,33 @@ body {
     sans-serif;
 }
 
+@keyframes live-golden-shadow-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(247, 201, 72, 0.18),
+      0 0 22px rgba(247, 201, 72, 0.22),
+      0 22px 55px rgba(0, 0, 0, 0.34);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(247, 201, 72, 0.42),
+      0 0 42px rgba(247, 201, 72, 0.48),
+      0 26px 70px rgba(247, 201, 72, 0.18);
+  }
+}
+
+.live-golden-shadow {
+  animation: live-golden-shadow-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-golden-shadow {
+    animation: none;
+  }
+}
+
 @media (max-width: 640px) {
   .z-9999 {
     padding: 0.35rem !important;

@@ -329,50 +329,50 @@ export function MatchScoreCard({
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col justify-between gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-end">
-          <span className="text-center text-xs font-black uppercase tracking-[0.16em] text-slate-500 sm:text-left sm:text-sm sm:tracking-[0.2em]">
+        <div className="mt-4 grid gap-2 border-t border-white/10 pt-4 text-center sm:grid-cols-2 sm:text-left">
+          <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-500 sm:text-sm sm:tracking-[0.2em]">
             {formatLocalFixtureDateTime(fixture)}
           </span>
 
-          <p className="text-center text-xs font-bold leading-5 text-slate-500 sm:text-left">
+          <p className="text-xs font-bold leading-5 text-slate-500 sm:text-right">
             {fixture.venue}, {fixture.city}
           </p>
+        </div>
 
-          <div className="flex flex-col items-stretch gap-2" onClick={(event) => event.stopPropagation()}>
-            <button
-              type="button"
-              disabled={isLoadRealDataDisabled}
-              onClick={handleLoadRealData}
-              className="min-h-10 rounded-full border border-emerald-300/30 bg-emerald-300/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-100 shadow-lg shadow-emerald-950/20 transition hover:border-emerald-200 hover:bg-emerald-300/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500 sm:tracking-[0.16em]"
-            >
-              {copyingRealData || realMatchLoading
-                ? 'Loading real data...'
-                : hasEspnData
-                  ? 'Load real data'
-                  : 'Real data unavailable'}
-            </button>
+        <div className="mt-3 border-t border-white/10 pt-3" onClick={(event) => event.stopPropagation()}>
+          <button
+            type="button"
+            disabled={isLoadRealDataDisabled}
+            onClick={handleLoadRealData}
+            className="block min-h-11 w-full rounded-2xl border border-emerald-300/40 bg-emerald-300/15 px-4 py-3 text-center text-xs font-black uppercase tracking-[0.14em] text-emerald-100 shadow-lg shadow-emerald-950/20 transition hover:border-emerald-200 hover:bg-emerald-300/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500 sm:text-sm sm:tracking-[0.16em]"
+          >
+            {copyingRealData || realMatchLoading
+              ? 'Loading real data...'
+              : hasEspnData
+                ? 'Load real data'
+                : 'Real data unavailable'}
+          </button>
 
-            {loadRealDataStatus !== 'idle' && (
-              <p
-                className={`text-center text-[10px] font-bold ${
-                  loadRealDataStatus === 'copied'
-                    ? 'text-emerald-200'
-                    : loadRealDataStatus === 'unavailable'
-                      ? 'text-yellow-200'
-                      : 'text-red-200'
-                }`}
-              >
-                {loadRealDataStatus === 'copied'
-                  ? 'Score replaced with actual result.'
+          {loadRealDataStatus !== 'idle' && (
+            <p
+              className={`mt-2 text-center text-[10px] font-bold ${
+                loadRealDataStatus === 'copied'
+                  ? 'text-emerald-200'
                   : loadRealDataStatus === 'unavailable'
-                    ? 'Actual score is not available yet.'
-                    : 'Could not load real data.'}
-              </p>
-            )}
-          </div>
+                    ? 'text-yellow-200'
+                    : 'text-red-200'
+              }`}
+            >
+              {loadRealDataStatus === 'copied'
+                ? 'Score replaced with actual result.'
+                : loadRealDataStatus === 'unavailable'
+                  ? 'Actual score is not available yet.'
+                  : 'Could not load real data.'}
+            </p>
+          )}
 
-          <p className="text-center text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 sm:text-right sm:text-xs sm:tracking-[0.2em]">
-            Click for ESPN match data
+          <p className="mt-2 text-center text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 sm:text-xs sm:tracking-[0.2em]">
+            Click card for ESPN match data
           </p>
         </div>
       </article>

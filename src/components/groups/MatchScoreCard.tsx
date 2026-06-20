@@ -267,65 +267,69 @@ export function MatchScoreCard({
           )}
         </div>
 
-        <div className="grid grid-cols-2 items-stretch gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
-          <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-3">
-            <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="lg" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 sm:text-xs">Home</p>
-              <p className="truncate text-base font-black text-white sm:text-lg">{homeTeam?.name ?? fixture.homeTeamId}</p>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-3">
+          <div className="min-w-0 text-left">
+            <div className="mb-2 flex justify-start">
+              <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="lg" />
+            </div>
+            <p className="truncate text-base font-black text-white sm:text-lg">{homeTeam?.name ?? fixture.homeTeamId}</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+              {homeTeam?.shortName ?? 'Home'}
+            </p>
+          </div>
+
+          <div className="min-w-[11.5rem] max-w-[13rem] rounded-2xl border border-white/10 bg-slate-950/55 p-3 text-center sm:min-w-[13rem] sm:p-4">
+            <div className="mb-3 flex items-center justify-center gap-3">
+              <input
+                type="number"
+                min="0"
+                value={score?.homeScore ?? ''}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => updateScore(fixture.id, 'homeScore', parseScoreValue(event.target.value))}
+                className="h-14 w-16 rounded-2xl border border-white/10 bg-white/10 text-center text-2xl font-black text-white outline-none transition focus:border-yellow-300/60 focus:bg-yellow-300/10 focus:ring-2 focus:ring-yellow-300/25 sm:h-16 sm:w-20 sm:text-3xl"
+              />
+
+              <span className="font-black text-slate-500">:</span>
+
+              <input
+                type="number"
+                min="0"
+                value={score?.awayScore ?? ''}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => updateScore(fixture.id, 'awayScore', parseScoreValue(event.target.value))}
+                className="h-14 w-16 rounded-2xl border border-white/10 bg-white/10 text-center text-2xl font-black text-white outline-none transition focus:border-yellow-300/60 focus:bg-yellow-300/10 focus:ring-2 focus:ring-yellow-300/25 sm:h-16 sm:w-20 sm:text-3xl"
+              />
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Actual</p>
+              <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+                {statusLabel && (
+                  <span className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${statusPillClass}`}>
+                    {statusLabel}
+                  </span>
+                )}
+                <p className="text-base font-black text-white sm:text-lg">{actualScoreLabel}</p>
+              </div>
+              {actualScoreDetail && <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">{actualScoreDetail}</p>}
             </div>
           </div>
 
-          <div className="order-3 col-span-2 grid gap-2 rounded-2xl border border-white/10 bg-slate-950/55 px-4 py-3 text-center md:order-none md:col-span-1 md:min-w-32">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Actual score</p>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {statusLabel && (
-                <span className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${statusPillClass}`}>
-                  {statusLabel}
-                </span>
-              )}
-              <p className="text-2xl font-black text-white sm:text-3xl">{actualScoreLabel}</p>
+          <div className="min-w-0 text-right">
+            <div className="mb-2 flex justify-end">
+              <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="lg" />
             </div>
-            {actualScoreDetail && <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{actualScoreDetail}</p>}
+            <p className="truncate text-base font-black text-white sm:text-lg">{awayTeam?.name ?? fixture.awayTeamId}</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+              {awayTeam?.shortName ?? 'Away'}
+            </p>
           </div>
-
-          <div className="flex min-w-0 items-center justify-end gap-3 rounded-2xl bg-white/5 p-3 text-right md:flex-row-reverse">
-            <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="lg" />
-            <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 sm:text-xs">Away</p>
-              <p className="truncate text-base font-black text-white sm:text-lg">{awayTeam?.name ?? fixture.awayTeamId}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <label className="grid gap-2 text-sm font-bold text-slate-300">
-            {homeTeam?.name ?? 'Home'} prediction
-            <input
-              type="number"
-              min="0"
-              value={score?.homeScore ?? ''}
-              onClick={(event) => event.stopPropagation()}
-              onChange={(event) => updateScore(fixture.id, 'homeScore', parseScoreValue(event.target.value))}
-              className="rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-lg font-black text-white outline-none transition focus:border-yellow-300/60 focus:ring-2 focus:ring-yellow-300/25"
-            />
-          </label>
-
-          <label className="grid gap-2 text-sm font-bold text-slate-300">
-            {awayTeam?.name ?? 'Away'} prediction
-            <input
-              type="number"
-              min="0"
-              value={score?.awayScore ?? ''}
-              onClick={(event) => event.stopPropagation()}
-              onChange={(event) => updateScore(fixture.id, 'awayScore', parseScoreValue(event.target.value))}
-              className="rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-lg font-black text-white outline-none transition focus:border-yellow-300/60 focus:ring-2 focus:ring-yellow-300/25"
-            />
-          </label>
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-slate-500">
-          <p>{formatLocalFixtureDateTime(fixture)}</p>
+          <p className="rounded-full bg-slate-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-yellow-100 sm:text-xs">
+            {formatLocalFixtureDateTime(fixture)}
+          </p>
           <p>{fixture.venue}</p>
         </div>
 

@@ -25,6 +25,15 @@ function isRealMatchCacheFresh(matchData: RealMatchData) {
   return Date.now() - fetchedAtTime < REAL_MATCH_CACHE_TTL_MS
 }
 
+function hasLineupPlayers(matchData: RealMatchData) {
+  const lineups = matchData.lineups
+
+  return Boolean(
+    lineups &&
+      (lineups.homeXi.length || lineups.awayXi.length || lineups.homeSubs.length || lineups.awaySubs.length)
+  )
+}
+
 function addDaysToFixtureDate(date: string, days: number) {
   const [year, month, day] = date.split('-').map(Number)
 
@@ -68,8 +77,9 @@ export const useRealMatchStore = create<RealMatchState>()(
         }
 
         const existing = get().matches[fixture.id]
+        const shouldUseFreshCache = existing && hasLineupPlayers(existing)
 
-        if (existing && !force && isRealMatchCacheFresh(existing)) {
+        if (shouldUseFreshCache && !force && isRealMatchCacheFresh(existing)) {
           set((state) => ({
             errors: { ...state.errors, [fixture.id]: null }
           }))
@@ -104,6 +114,6 @@ export const useRealMatchStore = create<RealMatchState>()(
         set({ matches: {}, loading: {}, errors: {} })
       }
     }),
-    { name: 'world-cup-2026-real-match-cache-v5' }
+    { name: 'world-cup-2026-real-match-cache-v6' }
   )
 )

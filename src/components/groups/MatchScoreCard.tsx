@@ -219,7 +219,7 @@ export function MatchScoreCard({
         }}
         className={`group scroll-mt-24 cursor-pointer overflow-hidden rounded-2xl border p-3 shadow-lg transition hover:-translate-y-0.5 sm:scroll-mt-28 sm:p-4 ${
           highlighted
-            ? 'border-yellow-200/70 bg-yellow-300/15 ring-4 ring-yellow-300/40'
+            ? 'live-golden-shadow border-yellow-200/70 bg-yellow-300/15 ring-4 ring-yellow-300/40'
             : isCompleted
               ? 'border-emerald-300/25 bg-emerald-300/10'
               : 'border-white/10 bg-slate-950/45 hover:border-yellow-300/25 hover:bg-white/8'
@@ -259,122 +259,83 @@ export function MatchScoreCard({
           )}
         </div>
 
-        <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="lg" />
-
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+          <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-3">
+            <TeamFlag code={homeTeam?.flagCode} name={homeTeam?.name} className="h-10 w-10" />
             <div className="min-w-0">
-              <p className="break-words text-sm font-black leading-tight text-white sm:truncate sm:text-base">
-                {homeTeam?.name}
-              </p>
-              <p className="text-[11px] font-bold text-slate-500 sm:text-xs">{homeTeam?.shortName}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Home</p>
+              <p className="truncate text-lg font-black text-white">{homeTeam?.name ?? fixture.homeTeamId}</p>
             </div>
           </div>
 
-          <div
-            className="col-span-2 row-start-2 mx-auto w-full max-w-[18rem] rounded-2xl border border-white/10 bg-black/20 p-2 sm:col-span-1 sm:row-start-auto sm:w-auto sm:max-w-none"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <input
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={score?.homeScore ?? ''}
-                onChange={(event) => {
-                  setLoadRealDataStatus('idle')
-                  updateScore(fixture.id, 'homeScore', parseScoreValue(event.target.value))
-                }}
-                className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10 sm:h-12 sm:w-14"
-              />
-
-              <span className="font-black text-slate-500">:</span>
-
-              <input
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={score?.awayScore ?? ''}
-                onChange={(event) => {
-                  setLoadRealDataStatus('idle')
-                  updateScore(fixture.id, 'awayScore', parseScoreValue(event.target.value))
-                }}
-                className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10 sm:h-12 sm:w-14"
-              />
-            </div>
-
-            <div className="mt-2 rounded-xl border border-sky-300/15 bg-sky-300/10 px-3 py-2 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-sky-200">
-                Actual
-              </p>
+          <div className="grid gap-2 rounded-2xl border border-white/10 bg-slate-950/55 px-4 py-3 text-center">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Actual score</p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
               {statusLabel && (
-                <p className={`mx-auto mt-1 w-fit rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${statusPillClass}`}>
+                <span className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${statusPillClass}`}>
                   {statusLabel}
-                </p>
+                </span>
               )}
-              <p className="mt-1 text-sm font-black text-white">{actualScoreLabel}</p>
-              {actualScoreDetail && <p className="mt-0.5 text-[10px] font-bold text-slate-400">{actualScoreDetail}</p>}
+              <p className="text-2xl font-black text-white sm:text-3xl">{actualScoreLabel}</p>
             </div>
+            {actualScoreDetail && <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{actualScoreDetail}</p>}
           </div>
 
-          <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end gap-2 text-right sm:col-start-auto sm:row-start-auto sm:gap-3">
+          <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-3 lg:flex-row-reverse lg:text-right">
+            <TeamFlag code={awayTeam?.flagCode} name={awayTeam?.name} className="h-10 w-10" />
             <div className="min-w-0">
-              <p className="break-words text-sm font-black leading-tight text-white sm:truncate sm:text-base">
-                {awayTeam?.name}
-              </p>
-              <p className="text-[11px] font-bold text-slate-500 sm:text-xs">{awayTeam?.shortName}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Away</p>
+              <p className="truncate text-lg font-black text-white">{awayTeam?.name ?? fixture.awayTeamId}</p>
             </div>
-
-            <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="lg" />
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col justify-between gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-end">
-          <span className="text-center text-xs font-black uppercase tracking-[0.16em] text-slate-500 sm:text-left sm:text-sm sm:tracking-[0.2em]">
-            {formatLocalFixtureDateTime(fixture)}
-          </span>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="grid gap-2 text-sm font-bold text-slate-300">
+            {homeTeam?.name ?? 'Home'} prediction
+            <input
+              type="number"
+              min="0"
+              value={score?.homeScore ?? ''}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => updateScore(fixture.id, 'homeScore', parseScoreValue(event.target.value))}
+              className="rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-lg font-black text-white outline-none transition focus:border-yellow-300/60 focus:ring-2 focus:ring-yellow-300/25"
+            />
+          </label>
 
-          <p className="text-center text-xs font-bold leading-5 text-slate-500 sm:text-left">
-            {fixture.venue}, {fixture.city}
-          </p>
+          <label className="grid gap-2 text-sm font-bold text-slate-300">
+            {awayTeam?.name ?? 'Away'} prediction
+            <input
+              type="number"
+              min="0"
+              value={score?.awayScore ?? ''}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => updateScore(fixture.id, 'awayScore', parseScoreValue(event.target.value))}
+              className="rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 text-lg font-black text-white outline-none transition focus:border-yellow-300/60 focus:ring-2 focus:ring-yellow-300/25"
+            />
+          </label>
+        </div>
 
-          <div className="flex flex-col items-stretch gap-2" onClick={(event) => event.stopPropagation()}>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-slate-500">
+          <p>{formatLocalFixtureDateTime(fixture)}</p>
+          <p>{fixture.venue}</p>
+        </div>
+
+        {hasEspnData && !isCompleted && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             <button
               type="button"
-              disabled={isLoadRealDataDisabled}
               onClick={handleLoadRealData}
-              className="min-h-10 rounded-full border border-emerald-300/30 bg-emerald-300/15 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-100 shadow-lg shadow-emerald-950/20 transition hover:border-emerald-200 hover:bg-emerald-300/25 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500 sm:tracking-[0.16em]"
+              disabled={isLoadRealDataDisabled}
+              className="rounded-full border border-sky-300/30 bg-sky-300/10 px-4 py-2 text-xs font-black uppercase tracking-[0.14em] text-sky-100 transition hover:bg-sky-300/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-slate-500"
             >
-              {copyingRealData || realMatchLoading
-                ? 'Loading real data...'
-                : hasEspnData
-                  ? 'Load real data'
-                  : 'Real data unavailable'}
+              {copyingRealData || realMatchLoading ? 'Loading real data...' : 'Load real data'}
             </button>
-
-            {loadRealDataStatus !== 'idle' && (
-              <p
-                className={`text-center text-[10px] font-bold ${
-                  loadRealDataStatus === 'copied'
-                    ? 'text-emerald-200'
-                    : loadRealDataStatus === 'unavailable'
-                      ? 'text-yellow-200'
-                      : 'text-red-200'
-                }`}
-              >
-                {loadRealDataStatus === 'copied'
-                  ? 'Score replaced with actual result.'
-                  : loadRealDataStatus === 'unavailable'
-                    ? 'Actual score is not available yet.'
-                    : 'Could not load real data.'}
-              </p>
-            )}
+            {loadRealDataStatus === 'copied' && <span className="text-xs font-black text-emerald-300">Actual score copied.</span>}
+            {loadRealDataStatus === 'unavailable' && <span className="text-xs font-black text-yellow-200">Actual score unavailable.</span>}
+            {loadRealDataStatus === 'error' && <span className="text-xs font-black text-red-200">Unable to copy score.</span>}
           </div>
-
-          <p className="text-center text-[10px] font-black uppercase tracking-[0.16em] text-slate-600 sm:text-right sm:text-xs sm:tracking-[0.2em]">
-            Click for ESPN match data
-          </p>
-        </div>
+        )}
       </article>
 
       <RealMatchModal

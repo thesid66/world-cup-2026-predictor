@@ -94,7 +94,7 @@ export function DashboardPage() {
         return
       }
 
-      void latestState.fetchMatchData(liveFixture, true)
+      void latestState.fetchMatchData(liveFixture, true, { silent: true })
     }, 1000)
 
     return () => window.clearInterval(intervalId)

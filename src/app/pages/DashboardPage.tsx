@@ -4,6 +4,7 @@ import { useTournamentData } from '../../context/TournamentDataContext'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import { getFixtureKickoffDate } from '../../utils/fixtureTime'
+import type { RealMatchData } from '../../types/realMatch'
 import type { Fixture } from '../../types/tournament'
 
 function isFixtureScoreCompleted(
@@ -29,6 +30,43 @@ function getNextFixture(fixtures: Fixture[]) {
   return datedFixtures.find((entry) => entry.kickoffDate.getTime() >= now)?.fixture ?? null
 }
 
+function getRealMatchStatusText(realMatch?: RealMatchData) {
+  return `${realMatch?.status.short ?? ''} ${realMatch?.status.long ?? ''}`.toLowerCase()
+}
+
+function isCompletedRealMatch(realMatch?: RealMatchData) {
+  const status = getRealMatchStatusText(realMatch)
+
+  return (
+    status.includes('ft') ||
+    status.includes('full time') ||
+    status.includes('full-time') ||
+    status.includes('final') ||
+    status.includes('postponed') ||
+    status.includes('abandoned')
+  )
+}
+
+function isLiveRealMatch(realMatch?: RealMatchData) {
+  if (!realMatch || isCompletedRealMatch(realMatch)) {
+    return false
+  }
+
+  const status = getRealMatchStatusText(realMatch)
+
+  return (
+    status.includes('live') ||
+    status.includes('half') ||
+    status.includes('progress') ||
+    status.includes('in play') ||
+    status.includes('1st') ||
+    status.includes('2nd') ||
+    status.includes('first') ||
+    status.includes('second') ||
+    typeof realMatch.status.elapsed === 'number'
+  )
+}
+
 export function DashboardPage() {
   const scores = usePredictionStore((state) => state.scores)
   const realMatches = useRealMatchStore((state) => state.matches)
@@ -38,12 +76,7 @@ export function DashboardPage() {
   const groupStageFixtures = fixtures.filter((fixture) => fixture.stage === 'group')
   const nextFixture = useMemo(() => getNextFixture(groupStageFixtures), [groupStageFixtures])
 
-  const liveFixture = groupStageFixtures.find((fixture) => {
-    const realMatch = realMatches[fixture.id]
-    const status = `${realMatch?.status.short ?? ''} ${realMatch?.status.long ?? ''}`.toLowerCase()
-
-    return status.includes('live')
-  })
+  const liveFixture = groupStageFixtures.find((fixture) => isLiveRealMatch(realMatches[fixture.id]))
 
   const featuredFixture = liveFixture ?? nextFixture
   const featuredHomeTeam = teams.find((team) => team.id === featuredFixture?.homeTeamId)
@@ -87,8 +120,8 @@ export function DashboardPage() {
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
             {liveFixture
-              ? 'A loaded ESPN match is currently marked live. Open the card for timeline, score and match details.'
-              : 'No live ESPN match is currently loaded. The next scheduled fixture is shown below with a live kickoff countdown.'}
+              ? 'An ESPN match is currently in progress. Open the card for live score, timeline and match details.'
+              : 'No unfinished live ESPN match is currently loaded. The next scheduled fixture is shown below with a live kickoff countdown.'}
           </p>
         </div>
 

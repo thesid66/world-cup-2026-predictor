@@ -7,6 +7,8 @@ import { getFixtureKickoffDate } from '../../utils/fixtureTime'
 import type { RealMatchData } from '../../types/realMatch'
 import type { Fixture } from '../../types/tournament'
 
+const MATCH_LIVE_LOOKUP_WINDOW_MS = 3 * 60 * 60 * 1000
+
 function isFixtureScoreCompleted(
   fixtureId: string,
   scores: ReturnType<typeof usePredictionStore.getState>['scores']
@@ -57,6 +59,7 @@ function isLiveRealMatch(realMatch?: RealMatchData) {
   return (
     status.includes('live') ||
     status.includes('half') ||
+    status.includes('break') ||
     status.includes('progress') ||
     status.includes('in play') ||
     status.includes('1st') ||
@@ -65,6 +68,22 @@ function isLiveRealMatch(realMatch?: RealMatchData) {
     status.includes('second') ||
     typeof realMatch.status.elapsed === 'number'
   )
+}
+
+function isLikelyLiveFixture(fixture: Fixture, realMatch?: RealMatchData) {
+  if (realMatch && isCompletedRealMatch(realMatch)) {
+    return false
+  }
+
+  const kickoffDate = getFixtureKickoffDate(fixture)
+
+  if (!kickoffDate) {
+    return false
+  }
+
+  const elapsedSinceKickoff = Date.now() - kickoffDate.getTime()
+
+  return elapsedSinceKickoff >= 0 && elapsedSinceKickoff <= MATCH_LIVE_LOOKUP_WINDOW_MS
 }
 
 export function DashboardPage() {
@@ -76,7 +95,10 @@ export function DashboardPage() {
   const groupStageFixtures = fixtures.filter((fixture) => fixture.stage === 'group')
   const nextFixture = useMemo(() => getNextFixture(groupStageFixtures), [groupStageFixtures])
 
-  const liveFixture = groupStageFixtures.find((fixture) => isLiveRealMatch(realMatches[fixture.id]))
+  const loadedLiveFixture = groupStageFixtures.find((fixture) => isLiveRealMatch(realMatches[fixture.id]))
+  const likelyLiveFixture = groupStageFixtures.find((fixture) => isLikelyLiveFixture(fixture, realMatches[fixture.id]))
+  const liveFixture = loadedLiveFixture ?? likelyLiveFixture
+  const liveMatch = liveFixture ? realMatches[liveFixture.id] : undefined
 
   useEffect(() => {
     if (!liveFixture) {
@@ -85,12 +107,13 @@ export function DashboardPage() {
 
     const intervalId = window.setInterval(() => {
       const latestState = useRealMatchStore.getState()
+      const latestRealMatch = latestState.matches[liveFixture.id]
 
       if (latestState.loading[liveFixture.id]) {
         return
       }
 
-      if (!isLiveRealMatch(latestState.matches[liveFixture.id])) {
+      if (latestRealMatch && !isLiveRealMatch(latestRealMatch)) {
         return
       }
 
@@ -103,6 +126,8 @@ export function DashboardPage() {
   const featuredFixture = liveFixture ?? nextFixture
   const featuredHomeTeam = teams.find((team) => team.id === featuredFixture?.homeTeamId)
   const featuredAwayTeam = teams.find((team) => team.id === featuredFixture?.awayTeamId)
+  const liveStatusLabel = liveMatch?.status.short || liveMatch?.status.long || 'Live lookup active'
+  const liveScoreLabel = liveMatch?.score.display
 
   return (
     <div className="grid gap-5 sm:gap-6">
@@ -132,19 +157,41 @@ export function DashboardPage() {
         </article>
       </section>
 
-      <section className="rounded-[1.6rem] border border-white/10 bg-white/8 p-4 shadow-2xl backdrop-blur-xl sm:rounded-4xl sm:p-5">
-        <div className="mb-5">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-300 sm:text-sm sm:tracking-[0.3em]">
-            {liveFixture ? 'Live now' : 'Next match'}
-          </p>
-          <h2 className="mt-2 text-3xl font-black leading-tight text-white">
-            {liveFixture ? 'Live match centre' : 'Upcoming fixture'}
-          </h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-            {liveFixture
-              ? 'An ESPN match is currently in progress. Open the card for live score, timeline and match details.'
-              : 'No unfinished live ESPN match is currently loaded. The next scheduled fixture is shown below with a live kickoff countdown.'}
-          </p>
+      <section
+        className={`rounded-[1.6rem] border p-4 shadow-2xl backdrop-blur-xl sm:rounded-4xl sm:p-5 ${
+          liveFixture
+            ? 'live-golden-shadow border-yellow-200/60 bg-yellow-300/10'
+            : 'border-white/10 bg-white/8'
+        }`}
+      >
+        <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
+          <div>
+            <p className={`text-xs font-black uppercase tracking-[0.24em] sm:text-sm sm:tracking-[0.3em] ${liveFixture ? 'text-yellow-200' : 'text-emerald-300'}`}>
+              {liveFixture ? 'Live now' : 'Next match'}
+            </p>
+            <h2 className="mt-2 text-3xl font-black leading-tight text-white">
+              {liveFixture ? 'Live match centre' : 'Upcoming fixture'}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+              {liveFixture
+                ? 'This dashboard is watching the live match window and refreshing ESPN data while the fixture remains in progress.'
+                : 'No live ESPN match is currently loaded. The next scheduled fixture is shown below with a kickoff countdown.'}
+            </p>
+          </div>
+
+          {liveFixture && (
+            <div className="rounded-2xl border border-yellow-200/30 bg-slate-950/50 p-3 text-left shadow-xl sm:min-w-[15rem]">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-400 shadow-[0_0_18px_rgba(248,113,113,0.8)]" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-200">Live status</span>
+              </div>
+              <p className="mt-2 text-xl font-black text-white">{liveScoreLabel ?? 'Loading score...'}</p>
+              <p className="mt-1 text-xs font-bold text-yellow-100">{liveStatusLabel}</p>
+              <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                Auto-refreshing silently
+              </p>
+            </div>
+          )}
         </div>
 
         {featuredFixture ? (

@@ -2,6 +2,7 @@ import { useTournamentData } from '../../context/TournamentDataContext'
 import { calculateGroupTable } from '../../logic/groupTable'
 import { usePredictionStore } from '../../store/predictionStore'
 import type { Fixture, GroupCode } from '../../types/tournament'
+import { TeamFlag } from '../ui/TeamFlag'
 import { GroupTable } from './GroupTable'
 
 type GroupStandingsProps = { groupCode: GroupCode }
@@ -42,7 +43,10 @@ export function GroupStandings({ groupCode }: GroupStandingsProps) {
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-200">
                 Leader
               </p>
-              <p className="mt-1 text-sm font-black text-white">{leader.shortName}</p>
+              <div className="mt-2 flex items-center gap-2 sm:justify-end">
+                <TeamFlag code={leader.flagCode} label={leader.teamName} size="sm" />
+                <p className="text-sm font-black text-white">{leader.teamName}</p>
+              </div>
             </div>
           )}
         </div>

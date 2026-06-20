@@ -267,16 +267,16 @@ export function MatchScoreCard({
           )}
         </div>
 
-        <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+        <div className="grid grid-cols-2 items-stretch gap-3 md:grid-cols-[1fr_auto_1fr] md:items-center">
           <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-3">
-            <TeamFlag code={homeTeam?.flagCode} className="h-10 w-10" />
+            <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="lg" />
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Home</p>
-              <p className="truncate text-lg font-black text-white">{homeTeam?.name ?? fixture.homeTeamId}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 sm:text-xs">Home</p>
+              <p className="truncate text-base font-black text-white sm:text-lg">{homeTeam?.name ?? fixture.homeTeamId}</p>
             </div>
           </div>
 
-          <div className="grid gap-2 rounded-2xl border border-white/10 bg-slate-950/55 px-4 py-3 text-center">
+          <div className="order-3 col-span-2 grid gap-2 rounded-2xl border border-white/10 bg-slate-950/55 px-4 py-3 text-center md:order-none md:col-span-1 md:min-w-32">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Actual score</p>
             <div className="flex flex-wrap items-center justify-center gap-2">
               {statusLabel && (
@@ -289,11 +289,11 @@ export function MatchScoreCard({
             {actualScoreDetail && <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{actualScoreDetail}</p>}
           </div>
 
-          <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-3 lg:flex-row-reverse lg:text-right">
-            <TeamFlag code={awayTeam?.flagCode} className="h-10 w-10" />
+          <div className="flex min-w-0 items-center justify-end gap-3 rounded-2xl bg-white/5 p-3 text-right md:flex-row-reverse">
+            <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="lg" />
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Away</p>
-              <p className="truncate text-lg font-black text-white">{awayTeam?.name ?? fixture.awayTeamId}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500 sm:text-xs">Away</p>
+              <p className="truncate text-base font-black text-white sm:text-lg">{awayTeam?.name ?? fixture.awayTeamId}</p>
             </div>
           </div>
         </div>

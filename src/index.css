@@ -37,3 +37,178 @@ body {
     'Segoe UI',
     sans-serif;
 }
+
+@media (max-width: 640px) {
+  .z-9999 {
+    padding: 0.35rem !important;
+  }
+
+  .z-9999 > article {
+    max-height: 96svh !important;
+    border-radius: 1rem 1rem 0 0 !important;
+  }
+
+  .z-9999 header {
+    padding: 0.65rem !important;
+  }
+
+  .z-9999 header h2 {
+    font-size: 1rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .z-9999 header p {
+    font-size: 0.62rem !important;
+    line-height: 0.95rem !important;
+  }
+
+  .z-9999 header .tracking-\[0\.3em\],
+  .z-9999 header .tracking-\[0\.16em\],
+  .z-9999 header .tracking-\[0\.14em\] {
+    letter-spacing: 0.08em !important;
+  }
+
+  .z-9999 header .mt-2 {
+    margin-top: 0.35rem !important;
+  }
+
+  .z-9999 header .gap-4 {
+    gap: 0.5rem !important;
+  }
+
+  .z-9999 header button {
+    min-height: 2rem !important;
+    padding: 0.35rem 0.55rem !important;
+    font-size: 0.6rem !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  .z-9999 header button:not(:last-child) {
+    max-width: 8rem;
+  }
+
+  .z-9999 header button svg {
+    width: 0.85rem !important;
+    height: 0.85rem !important;
+  }
+
+  .z-9999 nav {
+    margin-top: 0.45rem !important;
+    gap: 0.35rem !important;
+    padding-bottom: 0 !important;
+  }
+
+  .z-9999 nav button {
+    min-height: 1.85rem !important;
+    padding: 0.35rem 0.55rem !important;
+    font-size: 0.55rem !important;
+    letter-spacing: 0.08em !important;
+  }
+
+  .z-9999 > article > div {
+    padding: 0.65rem !important;
+  }
+
+  .z-9999 section {
+    margin-top: 0.65rem !important;
+    padding: 0.75rem !important;
+    border-radius: 1rem !important;
+    scroll-margin-top: 7.5rem !important;
+  }
+
+  .z-9999 section:first-child {
+    margin-top: 0 !important;
+  }
+
+  .z-9999 section h3 {
+    font-size: 1rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .z-9999 section h4 {
+    font-size: 0.9rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .z-9999 section p {
+    line-height: 1.1rem !important;
+  }
+
+  .z-9999 .rounded-3xl,
+  .z-9999 .rounded-2xl {
+    border-radius: 0.85rem !important;
+  }
+
+  .z-9999 .p-5,
+  .z-9999 .p-4,
+  .z-9999 .p-3 {
+    padding: 0.65rem !important;
+  }
+
+  .z-9999 .mt-5,
+  .z-9999 .mt-4,
+  .z-9999 .mb-4 {
+    margin-top: 0.65rem !important;
+    margin-bottom: 0.65rem !important;
+  }
+
+  .z-9999 .gap-4,
+  .z-9999 .gap-3 {
+    gap: 0.5rem !important;
+  }
+
+  .z-9999 .text-4xl,
+  .z-9999 .text-3xl,
+  .z-9999 .text-2xl {
+    font-size: 1.15rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .z-9999 .text-xl,
+  .z-9999 .text-lg,
+  .z-9999 .text-base {
+    font-size: 0.9rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .z-9999 .text-sm {
+    font-size: 0.78rem !important;
+    line-height: 1.15rem !important;
+  }
+
+  .z-9999 .text-xs {
+    font-size: 0.65rem !important;
+    line-height: 0.95rem !important;
+  }
+
+  .z-9999 .text-\[10px\],
+  .z-9999 .text-\[11px\],
+  .z-9999 .text-\[9px\] {
+    font-size: 0.58rem !important;
+    line-height: 0.85rem !important;
+  }
+
+  .z-9999 .tracking-\[0\.3em\],
+  .z-9999 .tracking-\[0\.2em\],
+  .z-9999 .tracking-\[0\.18em\],
+  .z-9999 .tracking-\[0\.16em\],
+  .z-9999 .tracking-\[0\.14em\] {
+    letter-spacing: 0.08em !important;
+  }
+
+  .z-9999 .min-w-\[92px\] {
+    min-width: 4.75rem !important;
+  }
+
+  .z-9999 .max-w-\[88px\] {
+    max-width: 4.8rem !important;
+  }
+
+  .z-9999 .h-8,
+  .z-9999 .w-8,
+  .z-9999 .min-w-8 {
+    width: 1.65rem !important;
+    height: 1.65rem !important;
+    min-width: 1.65rem !important;
+  }
+}

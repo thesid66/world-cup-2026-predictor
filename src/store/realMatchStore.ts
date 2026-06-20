@@ -10,11 +10,15 @@ const FALLBACK_HOME_COLOR = '10b981'
 const FALLBACK_AWAY_COLOR = '38bdf8'
 const SIMILAR_COLOR_DISTANCE_THRESHOLD = 90
 
+type FetchMatchDataOptions = {
+  silent?: boolean
+}
+
 type RealMatchState = {
   matches: Record<string, RealMatchData>
   loading: Record<string, boolean>
   errors: Record<string, string | null>
-  fetchMatchData: (fixture: Fixture, force?: boolean) => Promise<void>
+  fetchMatchData: (fixture: Fixture, force?: boolean, options?: FetchMatchDataOptions) => Promise<void>
   clearRealMatchCache: () => void
 }
 
@@ -363,16 +367,19 @@ export const useRealMatchStore = create<RealMatchState>()(
       loading: {},
       errors: {},
 
-      fetchMatchData: async (fixture, force = false) => {
+      fetchMatchData: async (fixture, force = false, options = {}) => {
         const lookupFixture = getEspnLookupFixture(fixture)
+        const shouldShowLoading = !options.silent
 
         if (!canFetchEspnWorldCupMatchData(lookupFixture)) {
-          set((state) => ({
-            errors: {
-              ...state.errors,
-              [fixture.id]: 'ESPN World Cup data is not available for this fixture yet.'
-            }
-          }))
+          if (!options.silent) {
+            set((state) => ({
+              errors: {
+                ...state.errors,
+                [fixture.id]: 'ESPN World Cup data is not available for this fixture yet.'
+              }
+            }))
+          }
           return
         }
 
@@ -386,27 +393,31 @@ export const useRealMatchStore = create<RealMatchState>()(
           return
         }
 
-        set((state) => ({
-          loading: { ...state.loading, [fixture.id]: true },
-          errors: { ...state.errors, [fixture.id]: null }
-        }))
+        if (shouldShowLoading) {
+          set((state) => ({
+            loading: { ...state.loading, [fixture.id]: true },
+            errors: { ...state.errors, [fixture.id]: null }
+          }))
+        }
 
         try {
           const data = cleanRealMatchData(await fetchEspnWorldCupMatchDataForFixture(lookupFixture))
 
           set((state) => ({
             matches: { ...state.matches, [fixture.id]: data },
-            loading: { ...state.loading, [fixture.id]: false },
+            loading: shouldShowLoading ? { ...state.loading, [fixture.id]: false } : state.loading,
             errors: { ...state.errors, [fixture.id]: null }
           }))
         } catch (error) {
-          set((state) => ({
-            loading: { ...state.loading, [fixture.id]: false },
-            errors: {
-              ...state.errors,
-              [fixture.id]: error instanceof Error ? error.message : 'Unable to load real match data.'
-            }
-          }))
+          if (shouldShowLoading) {
+            set((state) => ({
+              loading: { ...state.loading, [fixture.id]: false },
+              errors: {
+                ...state.errors,
+                [fixture.id]: error instanceof Error ? error.message : 'Unable to load real match data.'
+              }
+            }))
+          }
         }
       },
 

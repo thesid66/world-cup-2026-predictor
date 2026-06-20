@@ -3,9 +3,10 @@ import { persist } from 'zustand/middleware'
 import { canFetchEspnWorldCupMatchData, fetchEspnWorldCupMatchDataForFixture } from '../services/espnWorldCup'
 import type { RealMatchCommentary, RealMatchData, RealMatchEvent } from '../types/realMatch'
 import type { Fixture } from '../types/tournament'
+import { getFixtureKickoffDate } from '../utils/fixtureTime'
 
 const REAL_MATCH_CACHE_TTL_MS = 60 * 1000
-const ONE_DAY_MS = 24 * 60 * 60 * 1000
+const TOURNAMENT_UTC_OFFSET_MS = 4 * 60 * 60 * 1000
 const FALLBACK_HOME_COLOR = '10b981'
 const FALLBACK_AWAY_COLOR = '38bdf8'
 const SIMILAR_COLOR_DISTANCE_THRESHOLD = 90
@@ -47,25 +48,20 @@ function hasLineupPlayers(matchData: RealMatchData) {
   )
 }
 
-function addDaysToFixtureDate(date: string, days: number) {
-  const [year, month, day] = date.split('-').map(Number)
-
-  if (!year || !month || !day) {
-    return date
-  }
-
-  return new Date(Date.UTC(year, month - 1, day) + days * ONE_DAY_MS).toISOString().slice(0, 10)
+function getTournamentDateFromKickoffDate(kickoffDate: Date) {
+  return new Date(kickoffDate.getTime() - TOURNAMENT_UTC_OFFSET_MS).toISOString().slice(0, 10)
 }
 
 function getEspnLookupFixture(fixture: Fixture): Fixture {
-  if (fixture.kickoffTimeSort !== '24:00') {
+  const kickoffDate = getFixtureKickoffDate(fixture)
+
+  if (!kickoffDate) {
     return fixture
   }
 
   return {
     ...fixture,
-    date: addDaysToFixtureDate(fixture.date, 1),
-    kickoffTimeSort: '00:00'
+    date: getTournamentDateFromKickoffDate(kickoffDate)
   }
 }
 

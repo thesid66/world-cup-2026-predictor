@@ -7,6 +7,8 @@ import { getFixtureKickoffDate } from '../../utils/fixtureTime'
 import type { RealMatchData } from '../../types/realMatch'
 import type { Fixture } from '../../types/tournament'
 
+const MATCH_LIVE_LOOKUP_WINDOW_MS = 3 * 60 * 60 * 1000
+
 function isFixtureScoreCompleted(
   fixtureId: string,
   scores: ReturnType<typeof usePredictionStore.getState>['scores']
@@ -57,6 +59,7 @@ function isLiveRealMatch(realMatch?: RealMatchData) {
   return (
     status.includes('live') ||
     status.includes('half') ||
+    status.includes('break') ||
     status.includes('progress') ||
     status.includes('in play') ||
     status.includes('1st') ||
@@ -65,6 +68,22 @@ function isLiveRealMatch(realMatch?: RealMatchData) {
     status.includes('second') ||
     typeof realMatch.status.elapsed === 'number'
   )
+}
+
+function isLikelyLiveFixture(fixture: Fixture, realMatch?: RealMatchData) {
+  if (realMatch && isCompletedRealMatch(realMatch)) {
+    return false
+  }
+
+  const kickoffDate = getFixtureKickoffDate(fixture)
+
+  if (!kickoffDate) {
+    return false
+  }
+
+  const elapsedSinceKickoff = Date.now() - kickoffDate.getTime()
+
+  return elapsedSinceKickoff >= 0 && elapsedSinceKickoff <= MATCH_LIVE_LOOKUP_WINDOW_MS
 }
 
 export function DashboardPage() {
@@ -76,7 +95,9 @@ export function DashboardPage() {
   const groupStageFixtures = fixtures.filter((fixture) => fixture.stage === 'group')
   const nextFixture = useMemo(() => getNextFixture(groupStageFixtures), [groupStageFixtures])
 
-  const liveFixture = groupStageFixtures.find((fixture) => isLiveRealMatch(realMatches[fixture.id]))
+  const loadedLiveFixture = groupStageFixtures.find((fixture) => isLiveRealMatch(realMatches[fixture.id]))
+  const likelyLiveFixture = groupStageFixtures.find((fixture) => isLikelyLiveFixture(fixture, realMatches[fixture.id]))
+  const liveFixture = loadedLiveFixture ?? likelyLiveFixture
 
   useEffect(() => {
     if (!liveFixture) {
@@ -85,12 +106,13 @@ export function DashboardPage() {
 
     const intervalId = window.setInterval(() => {
       const latestState = useRealMatchStore.getState()
+      const latestRealMatch = latestState.matches[liveFixture.id]
 
       if (latestState.loading[liveFixture.id]) {
         return
       }
 
-      if (!isLiveRealMatch(latestState.matches[liveFixture.id])) {
+      if (latestRealMatch && !isLiveRealMatch(latestRealMatch)) {
         return
       }
 

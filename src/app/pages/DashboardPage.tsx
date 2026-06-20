@@ -70,7 +70,6 @@ function isLiveRealMatch(realMatch?: RealMatchData) {
 export function DashboardPage() {
   const scores = usePredictionStore((state) => state.scores)
   const realMatches = useRealMatchStore((state) => state.matches)
-  const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
   const { teams, groups, fixtures } = useTournamentData()
 
   const completedMatches = fixtures.filter((fixture) => isFixtureScoreCompleted(fixture.id, scores)).length
@@ -85,11 +84,21 @@ export function DashboardPage() {
     }
 
     const intervalId = window.setInterval(() => {
-      void fetchMatchData(liveFixture, true)
+      const latestState = useRealMatchStore.getState()
+
+      if (latestState.loading[liveFixture.id]) {
+        return
+      }
+
+      if (!isLiveRealMatch(latestState.matches[liveFixture.id])) {
+        return
+      }
+
+      void latestState.fetchMatchData(liveFixture, true)
     }, 1000)
 
     return () => window.clearInterval(intervalId)
-  }, [fetchMatchData, liveFixture])
+  }, [liveFixture])
 
   const featuredFixture = liveFixture ?? nextFixture
   const featuredHomeTeam = teams.find((team) => team.id === featuredFixture?.homeTeamId)

@@ -154,6 +154,7 @@ export function DashboardPage() {
             awayTeam={featuredAwayTeam}
             highlighted={Boolean(liveFixture)}
             showCountdown
+            hideLoadRealDataButton
           />
         ) : (
           <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5 text-sm font-bold text-slate-300">

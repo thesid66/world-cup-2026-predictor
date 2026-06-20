@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { canFetchEspnWorldCupMatchData, fetchEspnWorldCupMatchDataForFixture } from '../services/espnWorldCup'
-import type { RealMatchData } from '../types/realMatch'
+import type { RealMatchCommentary, RealMatchData, RealMatchEvent } from '../types/realMatch'
 import type { Fixture } from '../types/tournament'
 
 const REAL_MATCH_CACHE_TTL_MS = 60 * 1000
@@ -56,33 +56,159 @@ function getEspnLookupFixture(fixture: Fixture): Fixture {
   }
 }
 
-function cleanGoalScorerName(value: string) {
+function cleanEventActorName(value: string) {
   return value
-    .replace(/^\s*(goal|penalty\s*-\s*scored)\s*:\s*/i, '')
-    .replace(/^\s*(own goal)\s*:\s*/i, '')
+    .replace(/^\s*(goal|penalty\s*-\s*scored|own goal|yellow card|red card|second yellow card|substitution)\s*:\s*/i, '')
     .trim()
 }
 
+function getEventTypeText(event: Pick<RealMatchEvent, 'type' | 'detail'>) {
+  return `${event.type ?? ''} ${event.detail ?? ''}`.toLowerCase()
+}
+
+function isGoalEvent(event: Pick<RealMatchEvent, 'type' | 'detail'>) {
+  const typeText = getEventTypeText(event)
+  return typeText.includes('goal') || typeText.includes('penalty - scored')
+}
+
+function isCardEvent(event: Pick<RealMatchEvent, 'type' | 'detail'>) {
+  const typeText = getEventTypeText(event)
+  return typeText.includes('yellow card') || typeText.includes('red card')
+}
+
+function isSubstitutionText(value: string | undefined) {
+  return Boolean(value && /\bsubstitution\b/i.test(value))
+}
+
+function cleanTimelineEvent(event: RealMatchEvent): RealMatchEvent {
+  const shouldCleanLabel = isGoalEvent(event) || isCardEvent(event) || isSubstitutionText(event.type) || isSubstitutionText(event.detail)
+
+  if (!shouldCleanLabel) {
+    return event
+  }
+
+  const cleanedPlayerName = event.playerName ? cleanEventActorName(event.playerName) : event.playerName
+  const cleanedSecondaryPlayerName = event.secondaryPlayerName
+    ? cleanEventActorName(event.secondaryPlayerName)
+    : event.secondaryPlayerName
+  const cleanedDisplayText = event.displayText ? cleanEventActorName(event.displayText) : event.displayText
+
+  return {
+    ...event,
+    playerName: cleanedPlayerName || event.playerName,
+    secondaryPlayerName: cleanedSecondaryPlayerName || event.secondaryPlayerName,
+    displayText: cleanedDisplayText || cleanedPlayerName || event.displayText
+  }
+}
+
+function parseSubstitutionFromText(text: string) {
+  const substitutionMatch = text.match(/substitution\s*,?\s*([^.]*)?\.\s*(.+?)\s+replaces\s+(.+?)(?:\.|$)/i)
+
+  if (!substitutionMatch) {
+    return null
+  }
+
+  return {
+    teamName: substitutionMatch[1]?.trim() || undefined,
+    playerIn: substitutionMatch[2]?.trim(),
+    playerOut: substitutionMatch[3]?.trim()
+  }
+}
+
+function normalizeTeamName(value: string | undefined) {
+  return String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+function chooseSubstitutionTeamName(matchData: RealMatchData, commentary: RealMatchCommentary, parsedTeamName?: string) {
+  if (commentary.teamName) return commentary.teamName
+
+  const parsedTeam = normalizeTeamName(parsedTeamName)
+  if (!parsedTeam) return undefined
+
+  if (normalizeTeamName(matchData.homeTeam.name).includes(parsedTeam) || parsedTeam.includes(normalizeTeamName(matchData.homeTeam.name))) {
+    return matchData.homeTeam.name
+  }
+
+  if (normalizeTeamName(matchData.awayTeam.name).includes(parsedTeam) || parsedTeam.includes(normalizeTeamName(matchData.awayTeam.name))) {
+    return matchData.awayTeam.name
+  }
+
+  return parsedTeamName
+}
+
+function buildSubstitutionEventKey(event: Pick<RealMatchEvent, 'timeLabel' | 'playerName' | 'secondaryPlayerName' | 'teamName'>) {
+  return [event.timeLabel, event.playerName, event.secondaryPlayerName, event.teamName]
+    .map((value) => String(value ?? '').toLowerCase().trim())
+    .join('|')
+}
+
+function getExistingSubstitutionEventKeys(events: RealMatchEvent[]) {
+  return new Set(
+    events
+      .filter((event) => isSubstitutionText(event.type) || isSubstitutionText(event.detail) || isSubstitutionText(event.displayText))
+      .map(buildSubstitutionEventKey)
+  )
+}
+
+function deriveSubstitutionEvents(matchData: RealMatchData, events: RealMatchEvent[]) {
+  const existingKeys = getExistingSubstitutionEventKeys(events)
+  const substitutionEvents: RealMatchEvent[] = []
+
+  matchData.commentary?.forEach((commentary) => {
+    const text = commentary.text || ''
+
+    if (!isSubstitutionText(text) && !isSubstitutionText(commentary.type)) {
+      return
+    }
+
+    const parsed = parseSubstitutionFromText(text)
+    const playerIn = parsed?.playerIn || commentary.playerName
+    const playerOut = parsed?.playerOut
+
+    if (!playerIn && !playerOut) {
+      return
+    }
+
+    const event: RealMatchEvent = {
+      elapsed: commentary.elapsed ?? null,
+      timeLabel: commentary.timeLabel,
+      teamName: chooseSubstitutionTeamName(matchData, commentary, parsed?.teamName),
+      playerName: playerIn ? cleanEventActorName(playerIn) : undefined,
+      secondaryPlayerName: playerOut ? cleanEventActorName(playerOut) : undefined,
+      type: 'Substitution',
+      detail: 'Substitution',
+      displayText: playerIn ? cleanEventActorName(playerIn) : 'Substitution'
+    }
+
+    const key = buildSubstitutionEventKey(event)
+
+    if (!existingKeys.has(key)) {
+      existingKeys.add(key)
+      substitutionEvents.push(event)
+    }
+  })
+
+  return substitutionEvents
+}
+
+function sortEventsByMinute(events: RealMatchEvent[]) {
+  return [...events].sort((a, b) => {
+    const aMinute = typeof a.elapsed === 'number' ? a.elapsed : Number.MAX_SAFE_INTEGER
+    const bMinute = typeof b.elapsed === 'number' ? b.elapsed : Number.MAX_SAFE_INTEGER
+
+    if (aMinute !== bMinute) return aMinute - bMinute
+
+    return String(a.timeLabel ?? '').localeCompare(String(b.timeLabel ?? ''))
+  })
+}
+
 function cleanRealMatchData(matchData: RealMatchData): RealMatchData {
+  const cleanedEvents = matchData.events.map(cleanTimelineEvent)
+  const substitutionEvents = deriveSubstitutionEvents(matchData, cleanedEvents)
+
   return {
     ...matchData,
-    events: matchData.events.map((event) => {
-      const typeText = `${event.type ?? ''} ${event.detail ?? ''}`.toLowerCase()
-      const isGoalEvent = typeText.includes('goal') || typeText.includes('penalty - scored')
-
-      if (!isGoalEvent) {
-        return event
-      }
-
-      const cleanedPlayerName = event.playerName ? cleanGoalScorerName(event.playerName) : event.playerName
-      const cleanedDisplayText = event.displayText ? cleanGoalScorerName(event.displayText) : event.displayText
-
-      return {
-        ...event,
-        playerName: cleanedPlayerName || event.playerName,
-        displayText: cleanedDisplayText || cleanedPlayerName || event.displayText
-      }
-    })
+    events: sortEventsByMinute([...cleanedEvents, ...substitutionEvents])
   }
 }
 
@@ -144,6 +270,6 @@ export const useRealMatchStore = create<RealMatchState>()(
         set({ matches: {}, loading: {}, errors: {} })
       }
     }),
-    { name: 'world-cup-2026-real-match-cache-v7' }
+    { name: 'world-cup-2026-real-match-cache-v8' }
   )
 )

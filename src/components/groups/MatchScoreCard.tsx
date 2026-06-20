@@ -269,7 +269,7 @@ export function MatchScoreCard({
 
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
           <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-3">
-            <TeamFlag code={homeTeam?.flagCode} name={homeTeam?.name} className="h-10 w-10" />
+            <TeamFlag code={homeTeam?.flagCode} className="h-10 w-10" />
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Home</p>
               <p className="truncate text-lg font-black text-white">{homeTeam?.name ?? fixture.homeTeamId}</p>
@@ -290,7 +290,7 @@ export function MatchScoreCard({
           </div>
 
           <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-white/5 p-3 lg:flex-row-reverse lg:text-right">
-            <TeamFlag code={awayTeam?.flagCode} name={awayTeam?.name} className="h-10 w-10" />
+            <TeamFlag code={awayTeam?.flagCode} className="h-10 w-10" />
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Away</p>
               <p className="truncate text-lg font-black text-white">{awayTeam?.name ?? fixture.awayTeamId}</p>

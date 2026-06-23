@@ -31,16 +31,56 @@ function isFixtureScored(fixture: Fixture, scores: Record<string, PredictionScor
   return typeof prediction?.homeScore === 'number' && typeof prediction?.awayScore === 'number'
 }
 
-function getRemainingMatchesForTeam(
-  teamId: string,
-  groupFixtures: Fixture[],
+function canTeamFallOutsideDirectQualification(args: {
+  row: GroupTableRow
+  rows: GroupTableRow[]
+  groupFixtures: Fixture[]
   scores: Record<string, PredictionScore>
-) {
-  return groupFixtures.filter((fixture) => {
-    const teamInFixture = fixture.homeTeamId === teamId || fixture.awayTeamId === teamId
+}) {
+  const { row, rows, groupFixtures, scores } = args
+  const remainingFixtures = groupFixtures.filter((fixture) => !isFixtureScored(fixture, scores))
+  const initialPointsByTeam = new Map(rows.map((tableRow) => [tableRow.teamId, tableRow.points]))
 
-    return teamInFixture && !isFixtureScored(fixture, scores)
-  }).length
+  function hasTwoTeamsLevelOrAbove(pointsByTeam: Map<string, number>) {
+    const targetPoints = pointsByTeam.get(row.teamId) ?? row.points
+    const levelOrAboveCount = rows.filter((otherRow) => {
+      if (otherRow.teamId === row.teamId) return false
+
+      return (pointsByTeam.get(otherRow.teamId) ?? otherRow.points) >= targetPoints
+    }).length
+
+    return levelOrAboveCount >= 2
+  }
+
+  function simulate(fixtureIndex: number, pointsByTeam: Map<string, number>): boolean {
+    if (fixtureIndex >= remainingFixtures.length) {
+      return hasTwoTeamsLevelOrAbove(pointsByTeam)
+    }
+
+    const fixture = remainingFixtures[fixtureIndex]
+    const outcomes: Array<{ homePoints: number; awayPoints: number }> = [
+      { homePoints: 3, awayPoints: 0 },
+      { homePoints: 1, awayPoints: 1 },
+      { homePoints: 0, awayPoints: 3 }
+    ]
+
+    return outcomes.some((outcome) => {
+      const nextPointsByTeam = new Map(pointsByTeam)
+
+      nextPointsByTeam.set(
+        fixture.homeTeamId,
+        (nextPointsByTeam.get(fixture.homeTeamId) ?? 0) + outcome.homePoints
+      )
+      nextPointsByTeam.set(
+        fixture.awayTeamId,
+        (nextPointsByTeam.get(fixture.awayTeamId) ?? 0) + outcome.awayPoints
+      )
+
+      return simulate(fixtureIndex + 1, nextPointsByTeam)
+    })
+  }
+
+  return simulate(0, initialPointsByTeam)
 }
 
 function applyDirectQualificationStatus(args: {
@@ -60,16 +100,15 @@ function applyDirectQualificationStatus(args: {
   }
 
   rows.forEach((row) => {
-    const catchableTeams = rows.filter((otherRow) => {
-      if (otherRow.teamId === row.teamId) return false
-
-      const otherMaxPoints =
-        otherRow.points + getRemainingMatchesForTeam(otherRow.teamId, groupFixtures, scores) * 3
-
-      return otherMaxPoints >= row.points
+    const canFallOutsideDirectQualification = canTeamFallOutsideDirectQualification({
+      row,
+      rows,
+      groupFixtures,
+      scores
     })
 
-    row.directQualificationStatus = row.played > 0 && catchableTeams.length <= 1 ? 'qualified' : 'pending'
+    row.directQualificationStatus =
+      row.played > 0 && !canFallOutsideDirectQualification ? 'qualified' : 'pending'
   })
 
   return rows

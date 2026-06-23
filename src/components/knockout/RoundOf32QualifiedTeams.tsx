@@ -1,5 +1,7 @@
+import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
 import { getQualifiedTeams } from '../../logic/qualifiedTeams'
 import { usePredictionStore } from '../../store/predictionStore'
+import { useRealMatchStore } from '../../store/realMatchStore'
 import type { QualifiedTeamRow } from '../../types/tournament'
 import { TeamFlag } from '../ui/TeamFlag'
 
@@ -25,6 +27,21 @@ function getSourceClass(team: QualifiedTeamRow): string {
   }
 
   return 'bg-emerald-300/15 text-emerald-200 ring-emerald-300/30'
+}
+
+function isLockedQualifier(team: QualifiedTeamRow) {
+  return team.isGroupComplete || team.directQualificationStatus === 'qualified'
+}
+
+function getQualificationProgressLabel(team: QualifiedTeamRow) {
+  if (team.isGroupComplete) return 'Confirmed from completed group'
+  if (team.directQualificationStatus === 'qualified') return 'Mathematically qualified'
+
+  return 'Provisional'
+}
+
+function getQualificationProgressClass(team: QualifiedTeamRow) {
+  return isLockedQualifier(team) ? 'text-emerald-300' : 'text-yellow-300'
 }
 
 type QualifiedTeamCardProps = {
@@ -79,23 +96,21 @@ function QualifiedTeamCard({ team }: QualifiedTeamCardProps) {
         </div>
       </div>
 
-      <p
-        className={`mt-4 text-xs font-black ${
-          team.isGroupComplete ? 'text-emerald-300' : 'text-yellow-300'
-        }`}
-      >
-        {team.isGroupComplete ? 'Confirmed from completed group' : 'Provisional'}
+      <p className={`mt-4 text-xs font-black ${getQualificationProgressClass(team)}`}>
+        {getQualificationProgressLabel(team)}
       </p>
     </article>
   )
 }
 
 export function RoundOf32QualifiedTeams() {
-  const scores = usePredictionStore((state) => state.scores)
+  const predictionScores = usePredictionStore((state) => state.scores)
+  const realMatches = useRealMatchStore((state) => state.matches)
+  const scores = getScoresWithRealMatchData(predictionScores, realMatches)
 
   const { directQualifiers, thirdPlaceQualifiers, allQualifiedTeams } = getQualifiedTeams(scores)
 
-  const completeQualifiedTeams = allQualifiedTeams.filter((team) => team.isGroupComplete).length
+  const lockedQualifiedTeams = allQualifiedTeams.filter(isLockedQualifier).length
 
   return (
     <section className="mt-6 rounded-3xl border border-white/10 bg-white/8 p-5 shadow-xl backdrop-blur-xl">
@@ -133,8 +148,8 @@ export function RoundOf32QualifiedTeams() {
 
       <div className="mb-6 rounded-2xl border border-yellow-300/20 bg-yellow-300/10 p-4">
         <p className="text-sm font-bold leading-6 text-yellow-100">
-          {completeQualifiedTeams < 32
-            ? 'This qualification list is provisional until all group matches are predicted.'
+          {lockedQualifiedTeams < 32
+            ? 'Some qualification positions are still provisional until the remaining group matches are scored.'
             : 'All 32 teams are ready for the knockout bracket.'}
         </p>
       </div>

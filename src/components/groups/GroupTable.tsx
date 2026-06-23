@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import type { Fixture, GroupTableRow, PredictionScore, Team } from '../../types/tournament'
 import { TeamFlag } from '../ui/TeamFlag'
 
@@ -85,6 +86,19 @@ function getResultClass(result: TeamMatchSummary['result']) {
 
 function getToggleLabel(teamName: string, expanded: boolean) {
   return `${expanded ? 'Hide' : 'Show'} group-stage matches for ${teamName}`
+}
+
+function MatchToggleChevron({ expanded }: { expanded: boolean }) {
+  return (
+    <span
+      className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-yellow-300/10 text-yellow-300 ring-1 ring-yellow-300/20 transition duration-200 ${
+        expanded ? 'rotate-180' : ''
+      }`}
+      aria-hidden="true"
+    >
+      <ChevronDown className="size-4" strokeWidth={3} />
+    </span>
+  )
 }
 
 function getTeamMatchSummaries(args: {
@@ -255,9 +269,7 @@ export function GroupTable({ rows, fixtures, scores, teams }: GroupTableProps) {
                 onClick={() => toggleTeam(row.teamId)}
               >
                 <span>{matches.length} group match{matches.length === 1 ? '' : 'es'}</span>
-                <span className="text-base text-yellow-300" aria-hidden="true">
-                  {expanded ? '⌃' : '⌄'}
-                </span>
+                <MatchToggleChevron expanded={expanded} />
               </button>
 
               {expanded && (
@@ -354,12 +366,12 @@ export function GroupTable({ rows, fixtures, scores, teams }: GroupTableProps) {
                     <td className="px-3 py-3 text-center">
                       <button
                         type="button"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/6 text-lg font-black text-yellow-300 transition hover:border-yellow-300/40 hover:bg-yellow-300/10 focus:outline-none focus:ring-2 focus:ring-yellow-300/40"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/6 text-yellow-300 transition hover:border-yellow-300/40 hover:bg-yellow-300/10 focus:outline-none focus:ring-2 focus:ring-yellow-300/40"
                         aria-expanded={expanded}
                         aria-label={getToggleLabel(row.teamName, expanded)}
                         onClick={() => toggleTeam(row.teamId)}
                       >
-                        <span aria-hidden="true">{expanded ? '⌃' : '⌄'}</span>
+                        <MatchToggleChevron expanded={expanded} />
                       </button>
                     </td>
                   </tr>

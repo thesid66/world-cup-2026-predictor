@@ -353,7 +353,7 @@ export function GroupStageSection() {
         <button
           type="button"
           onClick={handleJumpToNextMatch}
-          className="fixed right-3 top-3 z-50 inline-flex min-h-10 items-center gap-2 rounded-full border border-yellow-200/40 bg-slate-950/95 px-3 py-2 text-left shadow-xl shadow-black/30 ring-1 ring-white/10 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-yellow-200 hover:bg-slate-900 sm:right-6 sm:top-6 sm:px-4"
+          className="fixed right-3 top-[4.75rem] z-50 inline-flex min-h-10 items-center gap-2 rounded-full border border-yellow-200/40 bg-slate-950/95 px-3 py-2 text-left shadow-xl shadow-black/30 ring-1 ring-white/10 backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-yellow-200 hover:bg-slate-900 sm:right-6 sm:top-20 sm:px-4"
         >
           <span className="text-[10px] font-black uppercase tracking-[0.14em] text-yellow-200 sm:text-xs sm:tracking-[0.16em]">
             Next match

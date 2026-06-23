@@ -1,6 +1,8 @@
 import { Trophy } from 'lucide-react'
+import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
 import { getKnockoutMatchWinner } from '../../logic/knockoutWinner'
 import { usePredictionStore } from '../../store/predictionStore'
+import { useRealMatchStore } from '../../store/realMatchStore'
 import type { ResolvedKnockoutMatch } from '../../types/tournament'
 import { TeamFlag } from '../ui/TeamFlag'
 
@@ -9,7 +11,9 @@ type ChampionCardProps = {
 }
 
 export function ChampionCard({ finalMatch }: ChampionCardProps) {
-  const scores = usePredictionStore((state) => state.scores)
+  const predictionScores = usePredictionStore((state) => state.scores)
+  const realMatches = useRealMatchStore((state) => state.matches)
+  const scores = getScoresWithRealMatchData(predictionScores, realMatches)
 
   const champion = finalMatch
     ? getKnockoutMatchWinner({

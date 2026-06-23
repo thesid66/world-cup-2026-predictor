@@ -1,21 +1,31 @@
-import { fixtures } from '../data/fixtures'
-import { groups } from '../data/groups'
-import { teams } from '../data/teams'
-import type { PredictionScore, ThirdPlaceTableRow } from '../types/tournament'
+import { fixtures as defaultFixtures } from '../data/fixtures'
+import { groups as defaultGroups } from '../data/groups'
+import { teams as defaultTeams } from '../data/teams'
+import type { Fixture, Group, PredictionScore, Team, ThirdPlaceTableRow } from '../types/tournament'
 import { isGroupComplete, isGroupStageComplete } from './groupProgress'
 import { calculateGroupTable } from './groupTable'
 
-export function calculateThirdPlaceRanking(
-  scores: Record<string, PredictionScore>
-): ThirdPlaceTableRow[] {
-  const groupStageComplete = isGroupStageComplete(scores)
+type CalculateThirdPlaceRankingData = {
+  groups?: Group[]
+  teams?: Team[]
+  fixtures?: Fixture[]
+}
 
-  const thirdPlacedTeams: ThirdPlaceTableRow[] = groups
+export function calculateThirdPlaceRanking(
+  scores: Record<string, PredictionScore>,
+  data: CalculateThirdPlaceRankingData = {}
+): ThirdPlaceTableRow[] {
+  const activeGroups = data.groups ?? defaultGroups
+  const activeTeams = data.teams ?? defaultTeams
+  const activeFixtures = data.fixtures ?? defaultFixtures
+  const groupStageComplete = isGroupStageComplete(scores, activeFixtures)
+
+  const thirdPlacedTeams: ThirdPlaceTableRow[] = activeGroups
     .map((group): ThirdPlaceTableRow | null => {
       const tableRows = calculateGroupTable({
         group: group.code,
-        teams,
-        fixtures,
+        teams: activeTeams,
+        fixtures: activeFixtures,
         scores
       })
 
@@ -29,7 +39,7 @@ export function calculateThirdPlaceRanking(
         ...thirdPlaceTeam,
         group: group.code,
         groupName: group.name,
-        isGroupComplete: isGroupComplete(group.code, scores),
+        isGroupComplete: isGroupComplete(group.code, scores, activeFixtures),
         qualificationStatus: 'waiting'
       }
     })

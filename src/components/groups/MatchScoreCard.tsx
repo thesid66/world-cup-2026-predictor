@@ -254,7 +254,7 @@ export function MatchScoreCard({
               Match {fixture.matchNumber}
             </span>
 
-            <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-400">
+            <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-white">
               Group {fixture.group}
             </span>
 
@@ -266,7 +266,7 @@ export function MatchScoreCard({
               </span>
             )}
 
-            <span className="min-w-0 text-xs font-bold text-slate-500">{fixture.city}</span>
+            <span className="min-w-0 text-xs font-bold text-white">{fixture.city}</span>
           </div>
 
           {countdownLabel && (
@@ -377,13 +377,17 @@ export function MatchScoreCard({
               {copyingRealData || realMatchLoading ? 'Loading real data...' : 'Load real data'}
             </button>
             {loadRealDataStatus === 'copied' && (
-              <span className="text-xs font-black text-emerald-300">Actual score copied.</span>
+              <span className="text-xs font-black text-emerald-300 w-full">
+                Actual score copied.
+              </span>
             )}
             {loadRealDataStatus === 'unavailable' && (
-              <span className="text-xs font-black text-yellow-200">Actual score unavailable.</span>
+              <span className="text-xs font-black text-yellow-200 w-full">
+                Actual score unavailable.
+              </span>
             )}
             {loadRealDataStatus === 'error' && (
-              <span className="text-xs font-black text-red-200">Unable to copy score.</span>
+              <span className="text-xs font-black text-red-200 w-full">Unable to copy score.</span>
             )}
           </div>
         )}

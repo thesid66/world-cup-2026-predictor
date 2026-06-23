@@ -1,12 +1,15 @@
 import type {
+  Fixture,
+  Group,
   GroupCode,
   KnockoutSlot,
   QualifiedTeamRow,
   ResolvedKnockoutMatch,
   RoundOf32SlotDefinition,
-  PredictionScore
+  PredictionScore,
+  Team
 } from '../types/tournament'
-import { getQualifiedTeams } from './qualifiedTeams'
+import { getQualifiedTeams, type QualifiedTeamsData } from './qualifiedTeams'
 
 export const roundOf32SlotDefinitions: RoundOf32SlotDefinition[] = [
   {
@@ -179,6 +182,12 @@ export const roundOf32SlotDefinitions: RoundOf32SlotDefinition[] = [
   }
 ]
 
+export type RoundOf32Data = QualifiedTeamsData & {
+  groups?: Group[]
+  teams?: Team[]
+  fixtures?: Fixture[]
+}
+
 type ThirdPlaceSlot = {
   key: string
   eligibleGroups: GroupCode[]
@@ -282,9 +291,10 @@ function resolveSlotTeam(args: {
 }
 
 export function getRoundOf32Matches(
-  scores: Record<string, PredictionScore>
+  scores: Record<string, PredictionScore>,
+  data: RoundOf32Data = {}
 ): ResolvedKnockoutMatch[] {
-  const { directQualifiers, thirdPlaceQualifiers } = getQualifiedTeams(scores)
+  const { directQualifiers, thirdPlaceQualifiers } = getQualifiedTeams(scores, data)
   const thirdPlaceAssignments = resolveThirdPlaceAssignments(thirdPlaceQualifiers)
 
   return roundOf32SlotDefinitions.map((definition) => {

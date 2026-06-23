@@ -1,5 +1,7 @@
+import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
 import { getKnockoutMatchWinner } from '../../logic/knockoutWinner'
 import { usePredictionStore } from '../../store/predictionStore'
+import { useRealMatchStore } from '../../store/realMatchStore'
 import type { ResolvedKnockoutMatch } from '../../types/tournament'
 import { KnockoutMatchCard } from './KnockoutMatchCard'
 
@@ -43,7 +45,9 @@ export function KnockoutRoundSection({
   totalMatches,
   accent = 'emerald'
 }: KnockoutRoundSectionProps) {
-  const scores = usePredictionStore((state) => state.scores)
+  const predictionScores = usePredictionStore((state) => state.scores)
+  const realMatches = useRealMatchStore((state) => state.matches)
+  const scores = getScoresWithRealMatchData(predictionScores, realMatches)
   const color = accentClasses[accent]
 
   const resolvedMatches = matches.filter((match) => match.homeTeam && match.awayTeam).length

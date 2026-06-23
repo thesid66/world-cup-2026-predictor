@@ -1,19 +1,39 @@
-import { fixtures } from '../data/fixtures'
-import { groups } from '../data/groups'
-import { teams } from '../data/teams'
-import type { PredictionScore, QualifiedTeamRow, QualifiedTeamsResult } from '../types/tournament'
+import { fixtures as defaultFixtures } from '../data/fixtures'
+import { groups as defaultGroups } from '../data/groups'
+import { teams as defaultTeams } from '../data/teams'
+import type {
+  Fixture,
+  Group,
+  PredictionScore,
+  QualifiedTeamRow,
+  QualifiedTeamsResult,
+  Team
+} from '../types/tournament'
 import { isGroupComplete } from './groupProgress'
 import { calculateGroupTable } from './groupTable'
 import { calculateThirdPlaceRanking } from './thirdPlaceRanking'
 
-export function getQualifiedTeams(scores: Record<string, PredictionScore>): QualifiedTeamsResult {
-  const directQualifiers: QualifiedTeamRow[] = groups.flatMap((group) => {
-    const groupComplete = isGroupComplete(group.code, scores)
+export type QualifiedTeamsData = {
+  groups?: Group[]
+  teams?: Team[]
+  fixtures?: Fixture[]
+}
+
+export function getQualifiedTeams(
+  scores: Record<string, PredictionScore>,
+  data: QualifiedTeamsData = {}
+): QualifiedTeamsResult {
+  const activeGroups = data.groups ?? defaultGroups
+  const activeTeams = data.teams ?? defaultTeams
+  const activeFixtures = data.fixtures ?? defaultFixtures
+
+  const directQualifiers: QualifiedTeamRow[] = activeGroups.flatMap((group) => {
+    const groupComplete = isGroupComplete(group.code, scores, activeFixtures)
 
     const tableRows = calculateGroupTable({
       group: group.code,
-      teams,
-      fixtures,
+      teams: activeTeams,
+      fixtures: activeFixtures,
       scores
     })
 
@@ -46,7 +66,11 @@ export function getQualifiedTeams(scores: Record<string, PredictionScore>): Qual
       .filter((row): row is QualifiedTeamRow => Boolean(row))
   })
 
-  const thirdPlaceQualifiers: QualifiedTeamRow[] = calculateThirdPlaceRanking(scores)
+  const thirdPlaceQualifiers: QualifiedTeamRow[] = calculateThirdPlaceRanking(scores, {
+    groups: activeGroups,
+    teams: activeTeams,
+    fixtures: activeFixtures
+  })
     .filter((row) => row.qualificationStatus === 'qualified')
     .map((row): QualifiedTeamRow => {
       return {

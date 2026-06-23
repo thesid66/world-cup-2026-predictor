@@ -1,3 +1,4 @@
+import { useTournamentData } from '../../context/TournamentDataContext'
 import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
 import { getQualifiedTeams } from '../../logic/qualifiedTeams'
 import { usePredictionStore } from '../../store/predictionStore'
@@ -106,9 +107,14 @@ function QualifiedTeamCard({ team }: QualifiedTeamCardProps) {
 export function RoundOf32QualifiedTeams() {
   const predictionScores = usePredictionStore((state) => state.scores)
   const realMatches = useRealMatchStore((state) => state.matches)
+  const { groups, teams, fixtures } = useTournamentData()
   const scores = getScoresWithRealMatchData(predictionScores, realMatches)
 
-  const { directQualifiers, thirdPlaceQualifiers, allQualifiedTeams } = getQualifiedTeams(scores)
+  const { directQualifiers, thirdPlaceQualifiers, allQualifiedTeams } = getQualifiedTeams(scores, {
+    groups,
+    teams,
+    fixtures
+  })
 
   const lockedQualifiedTeams = allQualifiedTeams.filter(isLockedQualifier).length
 

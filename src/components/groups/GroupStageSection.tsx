@@ -96,6 +96,7 @@ export function GroupStageSection() {
   const replaceScores = usePredictionStore((state) => state.replaceScores)
   const resetPredictions = usePredictionStore((state) => state.resetPredictions)
   const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
+  const clearRealMatchCache = useRealMatchStore((state) => state.clearRealMatchCache)
   const { fixtures, teams } = useTournamentData()
 
   const groupStageFixtures = useMemo(
@@ -213,6 +214,13 @@ export function GroupStageSection() {
     setActualScoreLoadSummary(`Actual scores: ${summaryParts.join(' · ')}.`)
   }
 
+  function handleResetAllScores() {
+    resetPredictions()
+    clearRealMatchCache()
+    setActualScoreLoadSummary(null)
+    setHighlightedFixtureId(null)
+  }
+
   function handleJumpToNextMatch() {
     if (!nextMatchFixture) return
 
@@ -271,7 +279,7 @@ export function GroupStageSection() {
 
               <button
                 type="button"
-                onClick={resetPredictions}
+                onClick={handleResetAllScores}
                 className="min-h-11 rounded-2xl border border-red-300/30 bg-red-400/10 px-5 py-3 text-sm font-black text-red-200 transition hover:-translate-y-0.5 hover:bg-red-400/20"
               >
                 Reset all scores

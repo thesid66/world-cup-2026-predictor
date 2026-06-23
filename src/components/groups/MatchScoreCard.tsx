@@ -19,6 +19,8 @@ type MatchScoreCardProps = {
 
 type LoadRealDataStatus = 'idle' | 'copied' | 'unavailable' | 'error'
 
+const LOAD_REAL_DATA_STATUS_TIMEOUT_MS = 3500
+
 type UsableActualScore = {
   home: number
   away: number
@@ -194,6 +196,18 @@ export function MatchScoreCard({
       window.clearInterval(timer)
     }
   }, [showCountdown])
+
+  useEffect(() => {
+    if (loadRealDataStatus === 'idle') return
+
+    const timer = window.setTimeout(() => {
+      setLoadRealDataStatus('idle')
+    }, LOAD_REAL_DATA_STATUS_TIMEOUT_MS)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [loadRealDataStatus])
 
   async function handleLoadRealData(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation()

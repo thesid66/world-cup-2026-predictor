@@ -8,24 +8,24 @@ import { GroupTable } from './GroupTable'
 type GroupStandingsProps = { groupCode: GroupCode }
 
 function getCompletedMatches(
-  groupCode: GroupCode,
-  fixtures: Fixture[],
+  groupFixtures: Fixture[],
   scores: ReturnType<typeof usePredictionStore.getState>['scores']
 ) {
-  return fixtures
-    .filter((fixture) => fixture.stage === 'group' && fixture.group === groupCode)
-    .filter((fixture) => {
-      const score = scores[fixture.id]
-      return typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
-    }).length
+  return groupFixtures.filter((fixture) => {
+    const score = scores[fixture.id]
+    return typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
+  }).length
 }
 
 export function GroupStandings({ groupCode }: GroupStandingsProps) {
   const scores = usePredictionStore((state) => state.scores)
   const { teams, fixtures } = useTournamentData()
 
+  const groupFixtures = fixtures.filter(
+    (fixture) => fixture.stage === 'group' && fixture.group === groupCode
+  )
   const tableRows = calculateGroupTable({ group: groupCode, teams, fixtures, scores })
-  const completedMatches = getCompletedMatches(groupCode, fixtures, scores)
+  const completedMatches = getCompletedMatches(groupFixtures, scores)
   const leader = tableRows[0]
 
   return (
@@ -53,7 +53,7 @@ export function GroupStandings({ groupCode }: GroupStandingsProps) {
       </div>
 
       <div className="p-3 sm:p-4">
-        <GroupTable rows={tableRows} />
+        <GroupTable rows={tableRows} fixtures={groupFixtures} scores={scores} teams={teams} />
       </div>
     </div>
   )

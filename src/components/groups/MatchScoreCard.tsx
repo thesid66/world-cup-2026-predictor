@@ -42,9 +42,10 @@ function parseScoreValue(value: string): number | null {
   return parsed
 }
 
-function hasUsableActualScore(
-  score?: { home: number | null; away: number | null }
-): score is UsableActualScore {
+function hasUsableActualScore(score?: {
+  home: number | null
+  away: number | null
+}): score is UsableActualScore {
   return typeof score?.home === 'number' && typeof score.away === 'number'
 }
 
@@ -74,7 +75,12 @@ function isFullTimeStatus(status?: RealStatusLike) {
 function isLiveStatus(status?: RealStatusLike) {
   if (!status || isFullTimeStatus(status)) return false
   const text = normalizeStatusText(status)
-  return text.includes('live') || text.includes('half') || text.includes('progress') || typeof status.elapsed === 'number'
+  return (
+    text.includes('live') ||
+    text.includes('half') ||
+    text.includes('progress') ||
+    typeof status.elapsed === 'number'
+  )
 }
 
 function getStatusLabel(status?: RealStatusLike) {
@@ -93,9 +99,10 @@ function getStatusDetail(status?: RealStatusLike) {
 
   const label = getStatusLabel(status)
   const detail = status.long && status.long !== label ? status.long : null
-  const elapsed = typeof status.elapsed === 'number' && !String(label ?? '').includes(`${status.elapsed}`)
-    ? `${status.elapsed}'`
-    : null
+  const elapsed =
+    typeof status.elapsed === 'number' && !String(label ?? '').includes(`${status.elapsed}`)
+      ? `${status.elapsed}'`
+      : null
 
   return [detail, elapsed].filter(Boolean).join(' · ') || null
 }
@@ -158,7 +165,9 @@ export function MatchScoreCard({
   const statusLabel = getStatusLabel(realMatch?.status)
   const statusDetail = getStatusDetail(realMatch?.status)
   const statusPillClass = getStatusPillClass(realMatch?.status)
-  const countdownLabel = showCountdown ? getCountdownLabel(fixture, currentTime, realMatch?.status) : null
+  const countdownLabel = showCountdown
+    ? getCountdownLabel(fixture, currentTime, realMatch?.status)
+    : null
 
   const actualScoreLabel = realMatch
     ? realMatch.score.display
@@ -272,7 +281,9 @@ export function MatchScoreCard({
             <div className="mb-2 flex justify-start">
               <TeamFlag code={homeTeam?.flagCode} label={homeTeam?.name} size="lg" />
             </div>
-            <p className="truncate text-base font-black text-white sm:text-lg">{homeTeam?.name ?? fixture.homeTeamId}</p>
+            <p className="truncate text-base font-black text-white sm:text-lg">
+              {homeTeam?.name ?? fixture.homeTeamId}
+            </p>
             <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
               {homeTeam?.shortName ?? 'Home'}
             </p>
@@ -285,7 +296,9 @@ export function MatchScoreCard({
                 min="0"
                 value={score?.homeScore ?? ''}
                 onClick={(event) => event.stopPropagation()}
-                onChange={(event) => updateScore(fixture.id, 'homeScore', parseScoreValue(event.target.value))}
+                onChange={(event) =>
+                  updateScore(fixture.id, 'homeScore', parseScoreValue(event.target.value))
+                }
                 className="h-14 w-16 rounded-2xl border border-white/10 bg-white/10 text-center text-2xl font-black text-white outline-none transition focus:border-yellow-300/60 focus:bg-yellow-300/10 focus:ring-2 focus:ring-yellow-300/25 sm:h-16 sm:w-20 sm:text-3xl"
               />
 
@@ -296,22 +309,32 @@ export function MatchScoreCard({
                 min="0"
                 value={score?.awayScore ?? ''}
                 onClick={(event) => event.stopPropagation()}
-                onChange={(event) => updateScore(fixture.id, 'awayScore', parseScoreValue(event.target.value))}
+                onChange={(event) =>
+                  updateScore(fixture.id, 'awayScore', parseScoreValue(event.target.value))
+                }
                 className="h-14 w-16 rounded-2xl border border-white/10 bg-white/10 text-center text-2xl font-black text-white outline-none transition focus:border-yellow-300/60 focus:bg-yellow-300/10 focus:ring-2 focus:ring-yellow-300/25 sm:h-16 sm:w-20 sm:text-3xl"
               />
             </div>
 
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Actual</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+                Actual
+              </p>
               <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
                 {statusLabel && (
-                  <span className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${statusPillClass}`}>
+                  <span
+                    className={`rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${statusPillClass}`}
+                  >
                     {statusLabel}
                   </span>
                 )}
                 <p className="text-base font-black text-white sm:text-lg">{actualScoreLabel}</p>
               </div>
-              {actualScoreDetail && <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">{actualScoreDetail}</p>}
+              {actualScoreDetail && (
+                <p className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">
+                  {actualScoreDetail}
+                </p>
+              )}
             </div>
           </div>
 
@@ -319,7 +342,9 @@ export function MatchScoreCard({
             <div className="mb-2 flex justify-end">
               <TeamFlag code={awayTeam?.flagCode} label={awayTeam?.name} size="lg" />
             </div>
-            <p className="truncate text-base font-black text-white sm:text-lg">{awayTeam?.name ?? fixture.awayTeamId}</p>
+            <p className="truncate text-base font-black text-white sm:text-lg">
+              {awayTeam?.name ?? fixture.awayTeamId}
+            </p>
             <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
               {awayTeam?.shortName ?? 'Away'}
             </p>
@@ -327,10 +352,10 @@ export function MatchScoreCard({
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs font-bold text-slate-500">
-          <p className="rounded-full bg-slate-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-yellow-100 sm:text-xs">
+          <p className="rounded-full bg-slate-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-yellow-100 sm:text-xs w-full">
             {formatLocalFixtureDateTime(fixture)}
           </p>
-          <p>{fixture.venue}</p>
+          <p className="w-full">{fixture.venue}</p>
         </div>
 
         {hasEspnData && !hideLoadRealDataButton && (
@@ -343,9 +368,15 @@ export function MatchScoreCard({
             >
               {copyingRealData || realMatchLoading ? 'Loading real data...' : 'Load real data'}
             </button>
-            {loadRealDataStatus === 'copied' && <span className="text-xs font-black text-emerald-300">Actual score copied.</span>}
-            {loadRealDataStatus === 'unavailable' && <span className="text-xs font-black text-yellow-200">Actual score unavailable.</span>}
-            {loadRealDataStatus === 'error' && <span className="text-xs font-black text-red-200">Unable to copy score.</span>}
+            {loadRealDataStatus === 'copied' && (
+              <span className="text-xs font-black text-emerald-300">Actual score copied.</span>
+            )}
+            {loadRealDataStatus === 'unavailable' && (
+              <span className="text-xs font-black text-yellow-200">Actual score unavailable.</span>
+            )}
+            {loadRealDataStatus === 'error' && (
+              <span className="text-xs font-black text-red-200">Unable to copy score.</span>
+            )}
           </div>
         )}
       </article>

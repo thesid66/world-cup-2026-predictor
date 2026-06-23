@@ -1,6 +1,7 @@
 import { CalendarDays, GitBranch, LogIn, LogOut, Table2, Trophy } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { TournamentProgressBar } from './TournamentProgressBar'
 
 export type AppPage = 'dashboard' | 'fixtures' | 'standings' | 'knockout'
 
@@ -59,7 +60,9 @@ export function AppShell({ children, activePage, onPageChange, onAuthClick }: Ap
   }, [])
 
   return (
-    <main className="min-h-screen px-3 py-4 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-5 lg:px-8">
+    <main className="min-h-screen px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[4.75rem] sm:px-5 sm:pt-20 lg:px-8">
+      <TournamentProgressBar />
+
       <div className="mx-auto w-full max-w-[104rem]">
         <header className="mb-5 rounded-[1.6rem] border border-white/10 bg-white/8 p-4 shadow-2xl backdrop-blur-xl sm:mb-8 sm:rounded-3xl sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

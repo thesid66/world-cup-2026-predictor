@@ -1,3 +1,4 @@
+import { useTournamentData } from '../../context/TournamentDataContext'
 import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
 import { getKnockoutMatchWinner } from '../../logic/knockoutWinner'
 import { getRoundOf32Matches } from '../../logic/roundOf32'
@@ -8,8 +9,9 @@ import { KnockoutMatchCard } from './KnockoutMatchCard'
 export function RoundOf32Bracket() {
   const predictionScores = usePredictionStore((state) => state.scores)
   const realMatches = useRealMatchStore((state) => state.matches)
+  const { groups, teams, fixtures } = useTournamentData()
   const scores = getScoresWithRealMatchData(predictionScores, realMatches)
-  const matches = getRoundOf32Matches(scores)
+  const matches = getRoundOf32Matches(scores, { groups, teams, fixtures })
 
   const resolvedMatches = matches.filter((match) => match.homeTeam && match.awayTeam).length
 

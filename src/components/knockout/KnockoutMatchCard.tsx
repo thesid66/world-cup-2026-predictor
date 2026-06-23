@@ -322,30 +322,28 @@ function TeamSide({
   align?: 'left' | 'right'
 }) {
   const provisional = Boolean(team && !team.isGroupComplete)
+  const teamName = team?.teamName ?? fallbackLabel
 
   return (
-    <div
-      className={`flex min-w-0 items-center gap-2 sm:gap-3 ${
-        align === 'right' ? 'justify-end text-right' : ''
-      }`}
-    >
-      {align === 'left' && <TeamFlag code={team?.flagCode} label={team?.teamName} size="lg" />}
-
-      <div className="min-w-0">
-        <div className={`flex flex-wrap items-center gap-2 ${align === 'right' ? 'justify-end' : ''}`}>
-          <p className="break-words text-sm font-black leading-tight text-white sm:truncate sm:text-base">
-            {team ? team.teamName : fallbackLabel}
-          </p>
-
-          {team && <QualifiedPill provisional={provisional} />}
-        </div>
-
-        <p className="mt-1 text-[11px] font-bold text-slate-500 sm:text-xs">
-          {team ? getTeamSeedDescription(team) : 'Pending'}
-        </p>
+    <div className={`min-w-0 ${align === 'right' ? 'text-right' : 'text-left'}`}>
+      <div className={`mb-2 flex ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
+        <TeamFlag code={team?.flagCode} label={teamName} size="lg" />
       </div>
 
-      {align === 'right' && <TeamFlag code={team?.flagCode} label={team?.teamName} size="lg" />}
+      <div className={`flex flex-wrap items-center gap-2 ${align === 'right' ? 'justify-end' : 'justify-start'}`}>
+        <p className="truncate text-base font-black text-white sm:text-lg">{teamName}</p>
+        {team && <QualifiedPill provisional={provisional} />}
+      </div>
+
+      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+        {team ? team.shortName : 'Pending'}
+      </p>
+
+      {team && (
+        <p className="mt-1 text-[10px] font-bold text-slate-500 sm:text-xs">
+          {getTeamSeedDescription(team)}
+        </p>
+      )}
     </div>
   )
 }

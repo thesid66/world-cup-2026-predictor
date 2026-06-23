@@ -374,18 +374,19 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
   useEffect(() => {
     if (!knockoutFixture || hasAnyScore) return
 
-    const kickoffDate = getFixtureKickoffDate(knockoutFixture)
+    const fixture = knockoutFixture
+    const kickoffDate = getFixtureKickoffDate(fixture)
 
     if (kickoffDate && kickoffDate.getTime() > Date.now()) return
 
     let cancelled = false
 
     async function loadRealScore() {
-      await fetchMatchData(knockoutFixture, false, { silent: true })
+      await fetchMatchData(fixture, false, { silent: true })
 
       if (cancelled) return
 
-      const latestScore = useRealMatchStore.getState().matches[knockoutFixture.id]?.score
+      const latestScore = useRealMatchStore.getState().matches[fixture.id]?.score
 
       if (!hasUsableActualScore(latestScore)) return
 

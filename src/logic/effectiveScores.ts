@@ -2,7 +2,9 @@ import type { RealMatchData } from '../types/realMatch'
 import type { PredictionScore } from '../types/tournament'
 
 function hasUsableRealScore(matchData?: RealMatchData) {
-  return typeof matchData?.score.home === 'number' && typeof matchData.score.away === 'number'
+  if (!matchData) return false
+
+  return typeof matchData.score.home === 'number' && typeof matchData.score.away === 'number'
 }
 
 export function getScoresWithRealMatchData(

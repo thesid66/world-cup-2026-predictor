@@ -4,12 +4,16 @@ import {
   getSemiFinalMatches,
   getThirdPlaceMatch
 } from '../../logic/finalRounds'
+import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
 import { usePredictionStore } from '../../store/predictionStore'
+import { useRealMatchStore } from '../../store/realMatchStore'
 import { ChampionCard } from './ChampionCard'
 import { KnockoutRoundSection } from './KnockoutRoundSection'
 
 export function FinalRounds() {
-  const scores = usePredictionStore((state) => state.scores)
+  const predictionScores = usePredictionStore((state) => state.scores)
+  const realMatches = useRealMatchStore((state) => state.matches)
+  const scores = getScoresWithRealMatchData(predictionScores, realMatches)
 
   const quarterFinals = getQuarterFinalMatches(scores)
   const semiFinals = getSemiFinalMatches(scores)

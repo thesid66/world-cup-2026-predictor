@@ -355,15 +355,7 @@ export function MatchScoreCard({
           <p className="rounded-full bg-slate-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-yellow-100 sm:text-xs w-full">
             {formatLocalFixtureDateTime(fixture)}
           </p>
-          <p
-            className="w-full ${
-                isCompleted
-                  ? 'text-white'
-                  : 'text-slate-500'
-              }`"
-          >
-            {fixture.venue}
-          </p>
+          <p className="w-full text-white">{fixture.venue}</p>
         </div>
 
         {hasEspnData && !hideLoadRealDataButton && (

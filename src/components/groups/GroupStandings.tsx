@@ -1,6 +1,8 @@
 import { useTournamentData } from '../../context/TournamentDataContext'
+import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
 import { calculateGroupTable } from '../../logic/groupTable'
 import { usePredictionStore } from '../../store/predictionStore'
+import { useRealMatchStore } from '../../store/realMatchStore'
 import type { Fixture, GroupCode } from '../../types/tournament'
 import { TeamFlag } from '../ui/TeamFlag'
 import { GroupTable } from './GroupTable'
@@ -18,8 +20,10 @@ function getCompletedMatches(
 }
 
 export function GroupStandings({ groupCode }: GroupStandingsProps) {
-  const scores = usePredictionStore((state) => state.scores)
+  const predictionScores = usePredictionStore((state) => state.scores)
+  const realMatches = useRealMatchStore((state) => state.matches)
   const { teams, fixtures } = useTournamentData()
+  const scores = getScoresWithRealMatchData(predictionScores, realMatches)
 
   const groupFixtures = fixtures.filter(
     (fixture) => fixture.stage === 'group' && fixture.group === groupCode
@@ -35,7 +39,7 @@ export function GroupStandings({ groupCode }: GroupStandingsProps) {
           <div>
             <h4 className="text-xl font-black text-white">Group {groupCode}</h4>
             <p className="mt-1 text-xs font-bold text-slate-400">
-              {completedMatches}/6 matches predicted
+              {completedMatches}/6 matches scored
             </p>
           </div>
           {leader && (

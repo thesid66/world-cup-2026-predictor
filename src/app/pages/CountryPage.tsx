@@ -19,10 +19,11 @@ import { TeamFlag } from '../../components/ui/TeamFlag'
 import { useTournamentData } from '../../context/TournamentDataContext'
 import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
 import { calculateGroupTable } from '../../logic/groupTable'
+import { calculateThirdPlaceRanking } from '../../logic/thirdPlaceRanking'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import type { RealMatchData, RealMatchEvent, RealMatchLineupPlayer, RealMatchStatistic } from '../../types/realMatch'
-import type { Fixture, GroupTableRow, PredictionScore, Team } from '../../types/tournament'
+import type { Fixture, GroupCode, GroupTableRow, PredictionScore, Team, ThirdPlaceTableRow } from '../../types/tournament'
 
 const STAT_TYPES = {
   possession: 'Ball Possession',
@@ -35,6 +36,13 @@ const STAT_TYPES = {
 } as const
 
 type StatType = (typeof STAT_TYPES)[keyof typeof STAT_TYPES]
+
+type CountryStatusTone = 'qualified' | 'eliminated' | 'race' | 'active' | 'pending'
+
+type CountryStatus = {
+  label: string
+  tone: CountryStatusTone
+}
 
 type ScoredPredictionScore = PredictionScore & {
   homeScore: number
@@ -169,6 +177,14 @@ function getResultClassName(result: CountryMatchRow['result']) {
   return 'bg-white/10 text-slate-300 ring-white/15'
 }
 
+function getCountryStatusClassName(tone: CountryStatusTone) {
+  if (tone === 'qualified') return 'bg-emerald-300/15 text-emerald-200 ring-emerald-300/25'
+  if (tone === 'eliminated') return 'bg-rose-400/15 text-rose-200 ring-rose-300/25'
+  if (tone === 'race') return 'bg-yellow-300/15 text-yellow-200 ring-yellow-300/25'
+  if (tone === 'active') return 'bg-sky-300/15 text-sky-200 ring-sky-300/25'
+  return 'bg-white/10 text-slate-300 ring-white/10'
+}
+
 function getTeamStatsForMatch(match: RealMatchData | undefined, isHome: boolean) {
   if (!match?.statistics.length) return []
   return match.statistics[isHome ? 0 : 1]?.statistics ?? []
@@ -235,12 +251,36 @@ function getCountryMatchRows(args: {
     })
 }
 
-function getQualificationLabel(row: GroupTableRow | undefined, groupPosition: number | null) {
-  if (!row || groupPosition === null) return 'Pending'
-  if (row.directQualificationStatus === 'qualified') return 'Confirmed direct qualifier'
-  if (groupPosition <= 2) return 'Direct place race'
-  if (groupPosition === 3) return 'Best third-place race'
-  return 'Needs results'
+function isGroupCompleteForCode(group: GroupCode, fixtures: Fixture[], scores: Record<string, PredictionScore>) {
+  const groupFixtures = fixtures.filter((fixture) => fixture.stage === 'group' && fixture.group === group)
+  return groupFixtures.length > 0 && groupFixtures.every((fixture) => isScored(scores[fixture.id]))
+}
+
+function getCountryStatus(args: {
+  row?: GroupTableRow
+  groupPosition: number
+  groupComplete: boolean
+  thirdPlaceStatus?: ThirdPlaceTableRow['qualificationStatus']
+}): CountryStatus {
+  const { row, groupPosition, groupComplete, thirdPlaceStatus } = args
+
+  if (!row || groupPosition < 1) return { label: 'Pending', tone: 'pending' }
+
+  if (row.directQualificationStatus === 'qualified' || (groupComplete && groupPosition <= 2)) {
+    return { label: 'Qualified', tone: 'qualified' }
+  }
+
+  if (groupPosition === 3) {
+    if (thirdPlaceStatus === 'qualified') return { label: 'Qualified', tone: 'qualified' }
+    if (thirdPlaceStatus === 'eliminated') return { label: 'Eliminated', tone: 'eliminated' }
+    return { label: groupComplete ? 'Waiting 3rd' : 'Best 3rd race', tone: 'race' }
+  }
+
+  if (groupComplete && groupPosition > 3) {
+    return { label: 'Eliminated', tone: 'eliminated' }
+  }
+
+  return { label: row.played > 0 ? 'Active' : 'Upcoming', tone: row.played > 0 ? 'active' : 'pending' }
 }
 
 function buildPlayerImpact(rows: CountryMatchRow[]) {
@@ -394,9 +434,33 @@ export function CountryPage() {
   const team = selectedTeam
   const group = groups.find((candidate) => candidate.code === team.group)
   const scores = getScoresWithRealMatchData(predictionScores, realMatches)
-  const groupTable = calculateGroupTable({ group: team.group, teams, fixtures, scores })
+  const groupTables = new Map(
+    groups.map((currentGroup) => [
+      currentGroup.code,
+      calculateGroupTable({ group: currentGroup.code, teams, fixtures, scores })
+    ] as const)
+  )
+  const groupCompleteByCode = new Map(
+    groups.map((currentGroup) => [currentGroup.code, isGroupCompleteForCode(currentGroup.code, fixtures, scores)] as const)
+  )
+  const thirdPlaceRanking = calculateThirdPlaceRanking(scores, { groups, teams, fixtures })
+  const getStatusForTeam = (candidate: Team): CountryStatus => {
+    const candidateGroupTable = groupTables.get(candidate.group) ?? []
+    const candidatePosition = candidateGroupTable.findIndex((row) => row.teamId === candidate.id) + 1
+    const candidateRow = candidateGroupTable.find((row) => row.teamId === candidate.id)
+    const thirdPlaceStatus = thirdPlaceRanking.find((row) => row.teamId === candidate.id)?.qualificationStatus
+
+    return getCountryStatus({
+      row: candidateRow,
+      groupPosition: candidatePosition,
+      groupComplete: groupCompleteByCode.get(candidate.group) ?? false,
+      thirdPlaceStatus
+    })
+  }
+  const groupTable = groupTables.get(team.group) ?? []
   const groupPosition = groupTable.findIndex((row) => row.teamId === team.id) + 1
   const tableRow = groupTable.find((row) => row.teamId === team.id)
+  const countryStatus = getStatusForTeam(team)
   const rows = getCountryMatchRows({ team, teams, fixtures, scores, realMatches })
   const completedRows = rows.filter((row) => row.countryScore !== null && row.opponentScore !== null)
   const statRows = rows.filter((row) => row.countryStats.length)
@@ -426,7 +490,6 @@ export function CountryPage() {
   const disciplineRating = clampRating(100 - yellowCards * 8 - redCards * 20 - (foulsAverage ?? 0) * 2)
   const playerImpact = buildPlayerImpact(rows)
   const espnLoadedCount = rows.filter((row) => row.realMatch).length
-  const qualificationLabel = getQualificationLabel(tableRow, groupPosition || null)
 
   const groupSnapshots = teams
     .filter((candidate) => candidate.group === team.group)
@@ -482,8 +545,8 @@ export function CountryPage() {
                   <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-black text-white ring-1 ring-white/10">
                     #{groupPosition || '—'} in Group {team.group}
                   </span>
-                  <span className="rounded-full bg-emerald-300/15 px-4 py-2 text-sm font-black text-emerald-200 ring-1 ring-emerald-300/25">
-                    {qualificationLabel}
+                  <span className={`rounded-full px-4 py-2 text-sm font-black ring-1 ${getCountryStatusClassName(countryStatus.tone)}`}>
+                    {countryStatus.label}
                   </span>
                   <span className="rounded-full bg-sky-300/15 px-4 py-2 text-sm font-black text-sky-200 ring-1 ring-sky-300/25">
                     ESPN loaded {espnLoadedCount}/{rows.length}
@@ -539,7 +602,12 @@ export function CountryPage() {
                   <span className="block truncate text-xs font-bold text-slate-400">Group {team.group} · {team.confederation}</span>
                 </span>
               </span>
-              <ChevronDown className={`size-5 shrink-0 text-yellow-300 transition ${selectorOpen ? 'rotate-180' : ''}`} />
+              <span className="flex shrink-0 items-center gap-2">
+                <span className={`hidden rounded-full px-3 py-1 text-xs font-black ring-1 sm:inline-flex ${getCountryStatusClassName(countryStatus.tone)}`}>
+                  {countryStatus.label}
+                </span>
+                <ChevronDown className={`size-5 text-yellow-300 transition ${selectorOpen ? 'rotate-180' : ''}`} />
+              </span>
             </button>
 
             {selectorOpen && (
@@ -558,6 +626,7 @@ export function CountryPage() {
                 <div className="mt-3 max-h-80 overflow-y-auto pr-1">
                   {filteredTeams.map((candidate) => {
                     const isActive = candidate.id === team.id
+                    const candidateStatus = getStatusForTeam(candidate)
 
                     return (
                       <button
@@ -581,7 +650,12 @@ export function CountryPage() {
                             </span>
                           </span>
                         </span>
-                        {isActive && <Check className="size-4 shrink-0" />}
+                        <span className="flex shrink-0 items-center gap-2">
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] ring-1 ${getCountryStatusClassName(candidateStatus.tone)}`}>
+                            {candidateStatus.label}
+                          </span>
+                          {isActive && <Check className="size-4 shrink-0" />}
+                        </span>
                       </button>
                     )
                   })}

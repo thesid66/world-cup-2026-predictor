@@ -1,9 +1,9 @@
-import { CalendarDays, GitBranch, LogIn, LogOut, Table2, Trophy } from 'lucide-react'
+import { CalendarDays, GitBranch, Globe2, LogIn, LogOut, Table2, Trophy } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { TournamentProgressBar } from './TournamentProgressBar'
 
-export type AppPage = 'dashboard' | 'fixtures' | 'standings' | 'knockout'
+export type AppPage = 'dashboard' | 'fixtures' | 'standings' | 'knockout' | 'countries'
 
 type AppShellProps = {
   children: ReactNode
@@ -36,6 +36,11 @@ const navItems: Array<{
     label: 'Knockout & Finals',
     page: 'knockout',
     icon: GitBranch
+  },
+  {
+    label: 'Countries',
+    page: 'countries',
+    icon: Globe2
   }
 ]
 
@@ -112,7 +117,7 @@ export function AppShell({ children, activePage, onPageChange, onAuthClick }: Ap
             </div>
           </div>
 
-          <nav className="mt-5 -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0">
+          <nav className="mt-5 -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:grid-cols-5 lg:overflow-visible lg:px-0">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = activePage === item.page

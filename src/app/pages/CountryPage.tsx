@@ -15,8 +15,8 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { TeamFlag } from '../../components/ui/TeamFlag'
 import { useTournamentData } from '../../context/TournamentDataContext'
-import { calculateGroupTable } from '../../logic/groupTable'
 import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
+import { calculateGroupTable } from '../../logic/groupTable'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import type { RealMatchData, RealMatchEvent, RealMatchLineupPlayer, RealMatchStatistic } from '../../types/realMatch'
@@ -29,8 +29,7 @@ const STAT_TYPES = {
   corners: 'Corner Kicks',
   fouls: 'Fouls',
   yellowCards: 'Yellow Cards',
-  redCards: 'Red Cards',
-  assists: 'Assists'
+  redCards: 'Red Cards'
 } as const
 
 type StatType = (typeof STAT_TYPES)[keyof typeof STAT_TYPES]
@@ -60,7 +59,6 @@ type PlayerImpactRow = {
   yellowCards: number
   redCards: number
   starts: number
-  bench: number
   captain: number
 }
 
@@ -83,7 +81,7 @@ function normalizeText(value: string | undefined) {
   return String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
-function parseStatNumber(value: RealMatchStatistic['value']) {
+function parseStatNumber(value: RealMatchStatistic['value']): number | null {
   const match = String(value ?? '')
     .replace(/,/g, '')
     .match(/-?\d+(?:\.\d+)?/)
@@ -94,34 +92,38 @@ function parseStatNumber(value: RealMatchStatistic['value']) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function getStatValue(stats: RealMatchStatistic[], type: StatType) {
+function getStatValue(stats: RealMatchStatistic[], type: StatType): number | null {
   const stat = stats.find((item) => item.type === type)
   return stat ? parseStatNumber(stat.value) : null
 }
 
-function formatOptionalNumber(value: number | null, suffix = '') {
+function average(values: Array<number | null>): number | null {
+  const cleanValues = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+
+  if (!cleanValues.length) return null
+
+  return cleanValues.reduce<number>((total, value) => total + value, 0) / cleanValues.length
+}
+
+function sum(values: Array<number | null>): number {
+  return values.reduce<number>((total, value) => total + (typeof value === 'number' ? value : 0), 0)
+}
+
+function formatNumber(value: number | null, suffix = '') {
   if (value === null || !Number.isFinite(value)) return '—'
   return `${Number.isInteger(value) ? value : value.toFixed(1)}${suffix}`
 }
 
 function formatPercent(value: number | null) {
-  return formatOptionalNumber(value, '%')
+  return formatNumber(value, '%')
 }
 
 function clampRating(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)))
 }
 
-function average(values: Array<number | null>) {
-  const cleanValues = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
-
-  if (!cleanValues.length) return null
-
-  return cleanValues.reduce((total, value) => total + value, 0) / cleanValues.length
-}
-
-function sum(values: Array<number | null>) {
-  return values.reduce((total, value) => total + (typeof value === 'number' ? value : 0), 0)
+function isScored(score?: PredictionScore): score is ScoredPredictionScore {
+  return Boolean(score && typeof score.homeScore === 'number' && typeof score.awayScore === 'number')
 }
 
 function isGoalEvent(event: RealMatchEvent) {
@@ -134,10 +136,6 @@ function isYellowCardEvent(event: RealMatchEvent) {
 
 function isRedCardEvent(event: RealMatchEvent) {
   return `${event.type ?? ''} ${event.detail ?? ''}`.toLowerCase().includes('red')
-}
-
-function isScored(score?: PredictionScore): score is ScoredPredictionScore {
-  return Boolean(score && typeof score.homeScore === 'number' && typeof score.awayScore === 'number')
 }
 
 function getResult(countryScore: number | null, opponentScore: number | null): CountryMatchRow['result'] {
@@ -163,22 +161,12 @@ function getResultClassName(result: CountryMatchRow['result']) {
 
 function getTeamStatsForMatch(match: RealMatchData | undefined, isHome: boolean) {
   if (!match?.statistics.length) return []
-
   return match.statistics[isHome ? 0 : 1]?.statistics ?? []
 }
 
 function getOpponentStatsForMatch(match: RealMatchData | undefined, isHome: boolean) {
   if (!match?.statistics.length) return []
-
   return match.statistics[isHome ? 1 : 0]?.statistics ?? []
-}
-
-function getCountryLineupPlayers(row: CountryMatchRow): RealMatchLineupPlayer[] {
-  const lineups = row.realMatch?.lineups
-
-  if (!lineups) return []
-
-  return row.isHome ? lineups.homeXi : lineups.awayXi
 }
 
 function eventBelongsToCountry(event: RealMatchEvent, match: RealMatchData | undefined, isHome: boolean) {
@@ -189,6 +177,14 @@ function eventBelongsToCountry(event: RealMatchEvent, match: RealMatchData | und
   const teamName = normalizeText(countryName)
 
   return eventTeam.includes(teamName) || teamName.includes(eventTeam)
+}
+
+function getCountryLineupPlayers(row: CountryMatchRow): RealMatchLineupPlayer[] {
+  const lineups = row.realMatch?.lineups
+
+  if (!lineups) return []
+
+  return row.isHome ? lineups.homeXi : lineups.awayXi
 }
 
 function getCountryMatchRows(args: {
@@ -250,7 +246,6 @@ function buildPlayerImpact(rows: CountryMatchRow[]) {
         yellowCards: 0,
         redCards: 0,
         starts: 0,
-        bench: 0,
         captain: 0
       })
     }
@@ -269,18 +264,10 @@ function buildPlayerImpact(rows: CountryMatchRow[]) {
       if (isRedCardEvent(event)) player.redCards += 1
     })
 
-    const lineups = row.realMatch?.lineups
-    const starters = row.isHome ? lineups?.homeXi : lineups?.awayXi
-    const substitutes = row.isHome ? lineups?.homeSubs : lineups?.awaySubs
-
-    starters?.forEach((lineupPlayer) => {
+    getCountryLineupPlayers(row).forEach((lineupPlayer) => {
       const player = getPlayer(lineupPlayer.name)
       player.starts += 1
       if (lineupPlayer.captain) player.captain += 1
-    })
-
-    substitutes?.forEach((lineupPlayer) => {
-      getPlayer(lineupPlayer.name).bench += 1
     })
   })
 
@@ -358,17 +345,11 @@ export function CountryPage() {
   const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
   const { teams, groups, fixtures } = useTournamentData()
   const [selectedTeamId, setSelectedTeamId] = useState('australia')
-
-  const team = teams.find((candidate) => candidate.id === selectedTeamId) ?? teams[0]
-  const group = groups.find((candidate) => candidate.code === team.group)
-  const scores = getScoresWithRealMatchData(predictionScores, realMatches)
-  const groupTable = calculateGroupTable({ group: team.group, teams, fixtures, scores })
-  const groupPosition = groupTable.findIndex((row) => row.teamId === team.id) + 1
-  const tableRow = groupTable.find((row) => row.teamId === team.id)
+  const selectedTeam = teams.find((candidate) => candidate.id === selectedTeamId) ?? teams[0]
 
   const countryFixtures = useMemo(
-    () => fixtures.filter((fixture) => fixture.homeTeamId === team.id || fixture.awayTeamId === team.id),
-    [fixtures, team.id]
+    () => selectedTeam ? fixtures.filter((fixture) => fixture.homeTeamId === selectedTeam.id || fixture.awayTeamId === selectedTeam.id) : [],
+    [fixtures, selectedTeam]
   )
 
   useEffect(() => {
@@ -379,11 +360,17 @@ export function CountryPage() {
     })
   }, [countryFixtures, fetchMatchData, loading, realMatches])
 
-  const rows = useMemo(
-    () => getCountryMatchRows({ team, teams, fixtures, scores, realMatches }),
-    [team, teams, fixtures, scores, realMatches]
-  )
+  if (!selectedTeam) {
+    return null
+  }
 
+  const team = selectedTeam
+  const group = groups.find((candidate) => candidate.code === team.group)
+  const scores = getScoresWithRealMatchData(predictionScores, realMatches)
+  const groupTable = calculateGroupTable({ group: team.group, teams, fixtures, scores })
+  const groupPosition = groupTable.findIndex((row) => row.teamId === team.id) + 1
+  const tableRow = groupTable.find((row) => row.teamId === team.id)
+  const rows = getCountryMatchRows({ team, teams, fixtures, scores, realMatches })
   const completedRows = rows.filter((row) => row.countryScore !== null && row.opponentScore !== null)
   const statRows = rows.filter((row) => row.countryStats.length)
   const possessionAverage = average(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.possession)))
@@ -394,8 +381,8 @@ export function CountryPage() {
   const opponentShotsOnGoalAverage = average(statRows.map((row) => getStatValue(row.opponentStats, STAT_TYPES.shotsOnGoal)))
   const yellowCards = sum(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.yellowCards)))
   const redCards = sum(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.redCards)))
-  const goalsPerMatch = tableRow && tableRow.played ? tableRow.goalsFor / tableRow.played : 0
-  const goalsAgainstPerMatch = tableRow && tableRow.played ? tableRow.goalsAgainst / tableRow.played : 0
+  const goalsPerMatch = tableRow?.played ? tableRow.goalsFor / tableRow.played : 0
+  const goalsAgainstPerMatch = tableRow?.played ? tableRow.goalsAgainst / tableRow.played : 0
   const cleanSheets = completedRows.filter((row) => row.opponentScore === 0).length
   const cleanSheetRate = completedRows.length ? cleanSheets / completedRows.length : 0
   const shotAccuracy = shotsAverage && shotsOnGoalAverage ? (shotsOnGoalAverage / shotsAverage) * 100 : null
@@ -417,8 +404,6 @@ export function CountryPage() {
     <div className="grid gap-5 sm:gap-6">
       <section className="relative overflow-hidden rounded-[1.8rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:rounded-[2rem] sm:p-6 lg:p-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.24),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.18),transparent_34%)]" />
-        <div className="absolute right-8 top-8 hidden h-56 w-56 rounded-full border border-yellow-300/20 bg-yellow-300/5 blur-3xl lg:block" />
-
         <div className="relative grid gap-6 lg:grid-cols-[1.35fr_0.65fr] lg:items-stretch">
           <div>
             <div className="flex flex-wrap items-center gap-3">
@@ -426,7 +411,6 @@ export function CountryPage() {
                 <Sparkles className="size-4" />
                 Country intelligence demo
               </span>
-
               <span className="rounded-full border border-white/10 bg-white/8 px-4 py-2 text-xs font-black text-slate-200">
                 ESPN stats · no commentary feed
               </span>
@@ -436,16 +420,13 @@ export function CountryPage() {
               <div className="flex size-28 items-center justify-center rounded-[2rem] border border-white/15 bg-white/10 shadow-2xl ring-1 ring-white/10 sm:size-36">
                 <TeamFlag code={team.flagCode} label={team.name} size="lg" className="scale-[2.6] sm:scale-[3.25]" />
               </div>
-
               <div className="min-w-0">
                 <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
                   {group?.name ?? `Group ${team.group}`} · {team.confederation}
                 </p>
-
                 <h1 className="mt-2 text-5xl font-black leading-none tracking-tight text-white sm:text-7xl">
                   {team.name}
                 </h1>
-
                 <div className="mt-4 flex flex-wrap gap-2">
                   <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-black text-white ring-1 ring-white/10">
                     #{groupPosition || '—'} in Group {team.group}
@@ -473,7 +454,7 @@ export function CountryPage() {
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-slate-400">GD</p>
               </div>
               <div className="rounded-2xl bg-slate-950/45 p-4 text-center ring-1 ring-white/10">
-                <p className="text-4xl font-black text-white">{formatOptionalNumber(goalsPerMatch)}</p>
+                <p className="text-4xl font-black text-white">{formatNumber(goalsPerMatch)}</p>
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Goals / match</p>
               </div>
               <div className="rounded-2xl bg-slate-950/45 p-4 text-center ring-1 ring-white/10">
@@ -493,7 +474,6 @@ export function CountryPage() {
           </div>
           <p className="text-sm font-bold text-slate-400">Demo uses available ESPN fields and calculated metrics.</p>
         </div>
-
         <div className="flex snap-x gap-2 overflow-x-auto pb-1">
           {teams.map((candidate) => {
             const isActive = candidate.id === team.id
@@ -520,8 +500,8 @@ export function CountryPage() {
       <section className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-5">
         <SummaryCard label="Record" value={`${tableRow?.won ?? 0}-${tableRow?.drawn ?? 0}-${tableRow?.lost ?? 0}`} detail="Wins, draws and losses from scored fixtures." icon={Trophy} />
         <SummaryCard label="Goals" value={`${tableRow?.goalsFor ?? 0}:${tableRow?.goalsAgainst ?? 0}`} detail="Goals for and against." icon={Crosshair} tone="emerald" />
-        <SummaryCard label="Shots" value={formatOptionalNumber(shotsAverage)} detail="Average total shots when ESPN stats are loaded." icon={Zap} tone="sky" />
-        <SummaryCard label="Accuracy" value={formatPercent(shotAccuracy)} detail="Shots on goal divided by total shots." icon={Gauge} tone="yellow" />
+        <SummaryCard label="Shots" value={formatNumber(shotsAverage)} detail="Average total shots when ESPN stats are loaded." icon={Zap} tone="sky" />
+        <SummaryCard label="Accuracy" value={formatPercent(shotAccuracy)} detail="Shots on goal divided by total shots." icon={Gauge} />
         <SummaryCard label="Cards" value={yellowCards + redCards} detail={`${yellowCards} yellow · ${redCards} red`} icon={Shield} tone="rose" />
       </section>
 
@@ -532,11 +512,8 @@ export function CountryPage() {
               <p className="text-xs font-black uppercase tracking-[0.28em] text-yellow-300">Performance engine</p>
               <h2 className="mt-2 text-3xl font-black text-white">Generated ratings</h2>
             </div>
-            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300 ring-1 ring-white/10">
-              ESPN-derived
-            </span>
+            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300 ring-1 ring-white/10">ESPN-derived</span>
           </div>
-
           <div className="grid gap-3 sm:grid-cols-2">
             <RatingCard label="Attack rating" value={attackRating} caption="Goals, shots, shots on goal, corners and conversion." icon={TrendingUp} />
             <RatingCard label="Control rating" value={controlRating} caption="Possession, shots, corners and fouls balance." icon={BarChart3} />
@@ -552,17 +529,16 @@ export function CountryPage() {
               <h2 className="mt-2 text-3xl font-black text-white">Average stat profile</h2>
             </div>
             <p className="max-w-sm text-xs font-bold leading-5 text-slate-400">
-              xG is intentionally not estimated. We only show it later if ESPN provides it directly.
+              xG is not estimated. It will only show if ESPN provides it directly.
             </p>
           </div>
-
           <div className="grid gap-3 sm:grid-cols-2">
             {[
               ['Possession', formatPercent(possessionAverage), 'Average ball control'],
-              ['Shots', formatOptionalNumber(shotsAverage), 'Total shots per match'],
-              ['Shots on goal', formatOptionalNumber(shotsOnGoalAverage), 'On-target attempts per match'],
-              ['Corners', formatOptionalNumber(cornersAverage), 'Set-piece pressure'],
-              ['Fouls', formatOptionalNumber(foulsAverage), 'Discipline pressure'],
+              ['Shots', formatNumber(shotsAverage), 'Total shots per match'],
+              ['Shots on goal', formatNumber(shotsOnGoalAverage), 'On-target attempts per match'],
+              ['Corners', formatNumber(cornersAverage), 'Set-piece pressure'],
+              ['Fouls', formatNumber(foulsAverage), 'Discipline pressure'],
               ['Conversion', formatPercent(conversionRate), 'Goals divided by total shots']
             ].map(([label, value, detail]) => (
               <div key={label} className="rounded-2xl border border-white/10 bg-white/8 p-4">
@@ -581,68 +557,43 @@ export function CountryPage() {
             <p className="text-xs font-black uppercase tracking-[0.28em] text-sky-300">Match command centre</p>
             <h2 className="mt-2 text-3xl font-black text-white">Match-by-match stats</h2>
           </div>
-          <span className="rounded-full bg-sky-300/10 px-3 py-1 text-xs font-black text-sky-200 ring-1 ring-sky-300/20">
-            {rows.length} fixtures
-          </span>
+          <span className="rounded-full bg-sky-300/10 px-3 py-1 text-xs font-black text-sky-200 ring-1 ring-sky-300/20">{rows.length} fixtures</span>
         </div>
-
         <div className="grid gap-4 lg:grid-cols-3">
           {rows.map((row) => {
-            const statusLabel = row.realMatch?.status.short ?? (isScored(row.score) ? 'FT' : 'NS')
             const possession = getStatValue(row.countryStats, STAT_TYPES.possession)
             const shots = getStatValue(row.countryStats, STAT_TYPES.totalShots)
             const shotsOnGoal = getStatValue(row.countryStats, STAT_TYPES.shotsOnGoal)
             const corners = getStatValue(row.countryStats, STAT_TYPES.corners)
+            const statusLabel = row.realMatch?.status.short ?? (isScored(row.score) ? 'FT' : 'NS')
 
             return (
               <article key={row.fixture.id} className="group rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:-translate-y-1 hover:border-yellow-300/35 hover:bg-slate-950/60">
                 <div className="mb-4 flex items-center justify-between gap-3">
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300 ring-1 ring-white/10">
-                    Match {row.fixture.matchNumber}
-                  </span>
+                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300 ring-1 ring-white/10">Match {row.fixture.matchNumber}</span>
                   <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${getResultClassName(row.result)}`}>
                     {getResultLabel(row.result)} · {statusLabel}
                   </span>
                 </div>
-
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">
-                      {row.isHome ? 'Home' : 'Away'} vs
-                    </p>
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">{row.isHome ? 'Home' : 'Away'} vs</p>
                     <div className="mt-2 flex items-center gap-2">
                       <TeamFlag code={row.opponent?.flagCode} label={row.opponent?.name} size="md" />
                       <p className="truncate text-lg font-black text-white">{row.opponent?.name ?? 'TBD'}</p>
                     </div>
                   </div>
-
                   <div className="rounded-2xl bg-white/10 px-4 py-3 text-center ring-1 ring-white/10">
-                    <p className="text-2xl font-black text-white">
-                      {row.countryScore ?? '-'}:{row.opponentScore ?? '-'}
-                    </p>
+                    <p className="text-2xl font-black text-white">{row.countryScore ?? '-'}:{row.opponentScore ?? '-'}</p>
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Score</p>
                   </div>
                 </div>
-
                 <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-                  <div className="rounded-2xl bg-white/8 p-3">
-                    <p className="text-lg font-black text-white">{formatPercent(possession)}</p>
-                    <p className="text-[10px] font-black uppercase text-slate-500">Possession</p>
-                  </div>
-                  <div className="rounded-2xl bg-white/8 p-3">
-                    <p className="text-lg font-black text-white">{formatOptionalNumber(shots)}</p>
-                    <p className="text-[10px] font-black uppercase text-slate-500">Shots</p>
-                  </div>
-                  <div className="rounded-2xl bg-white/8 p-3">
-                    <p className="text-lg font-black text-white">{formatOptionalNumber(shotsOnGoal)}</p>
-                    <p className="text-[10px] font-black uppercase text-slate-500">On target</p>
-                  </div>
-                  <div className="rounded-2xl bg-white/8 p-3">
-                    <p className="text-lg font-black text-white">{formatOptionalNumber(corners)}</p>
-                    <p className="text-[10px] font-black uppercase text-slate-500">Corners</p>
-                  </div>
+                  <div className="rounded-2xl bg-white/8 p-3"><p className="text-lg font-black text-white">{formatPercent(possession)}</p><p className="text-[10px] font-black uppercase text-slate-500">Possession</p></div>
+                  <div className="rounded-2xl bg-white/8 p-3"><p className="text-lg font-black text-white">{formatNumber(shots)}</p><p className="text-[10px] font-black uppercase text-slate-500">Shots</p></div>
+                  <div className="rounded-2xl bg-white/8 p-3"><p className="text-lg font-black text-white">{formatNumber(shotsOnGoal)}</p><p className="text-[10px] font-black uppercase text-slate-500">On target</p></div>
+                  <div className="rounded-2xl bg-white/8 p-3"><p className="text-lg font-black text-white">{formatNumber(corners)}</p><p className="text-[10px] font-black uppercase text-slate-500">Corners</p></div>
                 </div>
-
                 <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-400">
                   <CalendarDays className="size-4 text-yellow-300" />
                   <span>{row.fixture.date}</span>
@@ -664,17 +615,10 @@ export function CountryPage() {
             </div>
             <Medal className="size-8 text-yellow-300" />
           </div>
-
           <div className="overflow-hidden rounded-2xl border border-white/10">
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-950/70 text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Player</th>
-                  <th className="px-4 py-3 text-center">G</th>
-                  <th className="px-4 py-3 text-center">YC</th>
-                  <th className="px-4 py-3 text-center">RC</th>
-                  <th className="px-4 py-3 text-center">Starts</th>
-                </tr>
+                <tr><th className="px-4 py-3">Player</th><th className="px-4 py-3 text-center">G</th><th className="px-4 py-3 text-center">YC</th><th className="px-4 py-3 text-center">RC</th><th className="px-4 py-3 text-center">Starts</th></tr>
               </thead>
               <tbody className="divide-y divide-white/10">
                 {playerImpact.slice(0, 8).map((player) => (
@@ -689,14 +633,7 @@ export function CountryPage() {
                     <td className="px-4 py-3 text-center font-black">{player.starts}</td>
                   </tr>
                 ))}
-
-                {playerImpact.length === 0 && (
-                  <tr>
-                    <td className="px-4 py-5 text-sm font-bold text-slate-400" colSpan={5}>
-                      ESPN player events or lineups are not loaded for this country yet.
-                    </td>
-                  </tr>
-                )}
+                {playerImpact.length === 0 && <tr><td className="px-4 py-5 text-sm font-bold text-slate-400" colSpan={5}>ESPN player events or lineups are not loaded for this country yet.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -710,7 +647,6 @@ export function CountryPage() {
             </div>
             <Users className="size-8 text-emerald-300" />
           </div>
-
           <div className="grid gap-3">
             <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Most used formation</p>
@@ -719,7 +655,6 @@ export function CountryPage() {
                 {formationUsage[0] ? `${formationUsage[0].count} loaded match${formationUsage[0].count === 1 ? '' : 'es'}` : 'Waiting for ESPN lineups'}
               </p>
             </div>
-
             <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Latest XI</p>
               <div className="mt-3 grid gap-2">
@@ -729,12 +664,7 @@ export function CountryPage() {
                     <span className="shrink-0 text-xs font-black text-slate-400">{player.position ?? player.number ?? '—'}</span>
                   </div>
                 ))}
-
-                {latestXi.length === 0 && (
-                  <p className="rounded-xl bg-slate-950/45 px-3 py-4 text-sm font-bold text-slate-400">
-                    Latest XI will appear when ESPN lineup data is available.
-                  </p>
-                )}
+                {latestXi.length === 0 && <p className="rounded-xl bg-slate-950/45 px-3 py-4 text-sm font-bold text-slate-400">Latest XI will appear when ESPN lineup data is available.</p>}
               </div>
             </div>
           </div>

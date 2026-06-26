@@ -89,9 +89,9 @@ type BenchmarkRowProps = {
 
 const STAT_ALIASES: Record<StatKey, string[]> = {
   possession: ['ballpossession', 'possession', 'possessionpct', 'possessionpercentage'],
-  totalShots: ['totalshots', 'shots', 'shot', 'attempts', 'totalattempts'],
-  shotsOnGoal: ['shotsongoal', 'shotstarget', 'shotsontarget', 'sog', 'on target', 'ontarget'],
-  corners: ['cornerkicks', 'corners', 'woncorners'],
+  totalShots: ['totalshots', 'totalshot', 'totalattempts', 'attemptstotal'],
+  shotsOnGoal: ['shotsongoal', 'shotongoal', 'shotstarget', 'shotsontarget', 'sog', 'ontarget'],
+  corners: ['cornerkicks', 'cornerkick', 'corners', 'woncorners'],
   fouls: ['fouls', 'foulscommitted'],
   yellowCards: ['yellowcards', 'yellowcard', 'yellows'],
   redCards: ['redcards', 'redcard', 'reds']
@@ -126,13 +126,25 @@ function parseRating(value: RealMatchLineupPlayer['rating']): number | null {
   return parsed !== null && parsed > 0 ? parsed : null
 }
 
-function getStatValue(stats: RealMatchStatistic[], key: StatKey): number | null {
+function statMatchesKey(type: string, key: StatKey) {
+  const normalizedType = normalizeStatText(type)
   const aliases = STAT_ALIASES[key]
-  const stat = stats.find((item) => {
-    const normalizedType = normalizeStatText(item.type)
-    return aliases.some((alias) => normalizedType === alias || normalizedType.includes(alias) || alias.includes(normalizedType))
-  })
 
+  if (aliases.includes(normalizedType)) return true
+
+  if (key === 'shotsOnGoal') {
+    return normalizedType.includes('target') || normalizedType.includes('ongoal')
+  }
+
+  if (key === 'totalShots') {
+    return (normalizedType.includes('total') && normalizedType.includes('shot')) || normalizedType.includes('attempt')
+  }
+
+  return false
+}
+
+function getStatValue(stats: RealMatchStatistic[], key: StatKey): number | null {
+  const stat = stats.find((item) => statMatchesKey(item.type, key))
   return stat ? parseStatNumber(stat.value) : null
 }
 

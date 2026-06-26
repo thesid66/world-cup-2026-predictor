@@ -18,18 +18,50 @@ function isFixtureScoreCompleted(
   return typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
 }
 
-function getNextFixture(fixtures: Fixture[]) {
-  const now = Date.now()
+function getFixtureSlotKey(fixture: Fixture) {
+  const normalizedTimeSlot = fixture.kickoffTimeSort || fixture.kickoffTime
 
-  const datedFixtures = fixtures
+  if (fixture.date && normalizedTimeSlot) {
+    return `${fixture.date}|${normalizedTimeSlot}`
+  }
+
+  const kickoffDate = getFixtureKickoffDate(fixture)
+
+  return kickoffDate ? String(kickoffDate.getTime()) : null
+}
+
+function getDatedFixtures(fixtures: Fixture[]) {
+  return fixtures
     .map((fixture) => ({ fixture, kickoffDate: getFixtureKickoffDate(fixture) }))
     .filter(
       (entry): entry is { fixture: Fixture; kickoffDate: Date } =>
         entry.kickoffDate instanceof Date
     )
     .sort((a, b) => a.kickoffDate.getTime() - b.kickoffDate.getTime())
+}
+
+function getNextFixture(fixtures: Fixture[]) {
+  const now = Date.now()
+  const datedFixtures = getDatedFixtures(fixtures)
 
   return datedFixtures.find((entry) => entry.kickoffDate.getTime() >= now)?.fixture ?? null
+}
+
+function getFixturesInSameSlot(fixtures: Fixture[], selectedFixture: Fixture | null) {
+  if (!selectedFixture) {
+    return []
+  }
+
+  const selectedSlotKey = getFixtureSlotKey(selectedFixture)
+
+  if (!selectedSlotKey) {
+    return [selectedFixture]
+  }
+
+  const matchingFixtures = fixtures.filter((fixture) => getFixtureSlotKey(fixture) === selectedSlotKey)
+  const sortedFixtures = getDatedFixtures(matchingFixtures).map((entry) => entry.fixture)
+
+  return sortedFixtures.length ? sortedFixtures : matchingFixtures
 }
 
 function getRealMatchStatusText(realMatch?: RealMatchData) {
@@ -97,6 +129,10 @@ export function DashboardPage() {
     [fixtures]
   )
   const nextFixture = useMemo(() => getNextFixture(groupStageFixtures), [groupStageFixtures])
+  const nextFixtureSlot = useMemo(
+    () => getFixturesInSameSlot(groupStageFixtures, nextFixture),
+    [groupStageFixtures, nextFixture]
+  )
 
   const liveFixtures = useMemo(
     () =>
@@ -142,7 +178,9 @@ export function DashboardPage() {
     return () => window.clearInterval(intervalId)
   }, [liveFixtures])
 
-  const featuredFixtures = liveFixtures.length > 0 ? liveFixtures : nextFixture ? [nextFixture] : []
+  const featuredFixtures = liveFixtures.length > 0 ? liveFixtures : nextFixtureSlot
+  const hasMultipleLiveFixtures = liveFixtures.length > 1
+  const hasMultipleScheduledFixtures = liveFixtures.length === 0 && featuredFixtures.length > 1
 
   return (
     <div className="grid gap-5 sm:gap-6">
@@ -175,21 +213,25 @@ export function DashboardPage() {
       <section className="rounded-[1.6rem] border border-white/10 bg-white/8 p-4 shadow-2xl backdrop-blur-xl sm:rounded-4xl sm:p-5">
         <div className="mb-5">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-300 sm:text-sm sm:tracking-[0.3em]">
-            {liveFixtures.length > 0 ? 'Live now' : 'Next match'}
+            {liveFixtures.length > 0 ? 'Live now' : hasMultipleScheduledFixtures ? 'Next match slot' : 'Next match'}
           </p>
           <h2 className="mt-2 text-3xl font-black leading-tight text-white">
-            {liveFixtures.length > 1
+            {hasMultipleLiveFixtures
               ? 'Live matches centre'
               : liveFixtures.length === 1
                 ? 'Live match centre'
-                : 'Upcoming fixture'}
+                : hasMultipleScheduledFixtures
+                  ? 'Upcoming fixtures'
+                  : 'Upcoming fixture'}
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-            {liveFixtures.length > 1
+            {hasMultipleLiveFixtures
               ? 'Multiple ESPN matches are currently in progress. Open each card for live score, timeline and match details.'
               : liveFixtures.length === 1
                 ? 'An ESPN match is currently in progress. Open the card for live score, timeline and match details.'
-                : 'No unfinished live ESPN match is currently loaded. The next scheduled fixture is shown below with a live kickoff countdown.'}
+                : hasMultipleScheduledFixtures
+                  ? 'Multiple fixtures share the next scheduled kickoff slot, so they are shown together with live kickoff countdowns.'
+                  : 'No unfinished live ESPN match is currently loaded. The next scheduled fixture is shown below with a live kickoff countdown.'}
           </p>
         </div>
 

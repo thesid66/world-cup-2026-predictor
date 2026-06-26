@@ -1,5 +1,8 @@
+import { useTournamentData } from '../../context/TournamentDataContext'
+import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
 import { calculateThirdPlaceRanking } from '../../logic/thirdPlaceRanking'
 import { usePredictionStore } from '../../store/predictionStore'
+import { useRealMatchStore } from '../../store/realMatchStore'
 import { TeamFlag } from '../ui/TeamFlag'
 
 type QualificationStatus = 'qualified' | 'waiting' | 'eliminated'
@@ -38,8 +41,11 @@ function getQualificationClassName(status: QualificationStatus) {
 }
 
 export function ThirdPlaceRanking() {
-  const scores = usePredictionStore((state) => state.scores)
-  const rows = calculateThirdPlaceRanking(scores)
+  const predictionScores = usePredictionStore((state) => state.scores)
+  const realMatches = useRealMatchStore((state) => state.matches)
+  const { teams, groups, fixtures } = useTournamentData()
+  const scores = getScoresWithRealMatchData(predictionScores, realMatches)
+  const rows = calculateThirdPlaceRanking(scores, { groups, teams, fixtures })
 
   const qualifiedCount = rows.filter((row) => row.qualificationStatus === 'qualified').length
 

@@ -9,12 +9,14 @@ import { GoogleAnalytics } from '../components/analytics/GoogleAnalytics'
 import { DashboardPage } from './pages/DashboardPage'
 import { StandingsPage } from './pages/StandingsPage'
 import { KnockoutPage } from './pages/KnockoutPage'
+import { CountryPage } from './pages/CountryPage'
 
 const pageHashes: Record<AppPage, string> = {
   dashboard: 'dashboard',
   fixtures: 'fixtures',
   standings: 'standings',
-  knockout: 'knockout'
+  knockout: 'knockout',
+  countries: 'countries'
 }
 
 function getPageFromHash(): AppPage {
@@ -79,6 +81,7 @@ function AppContent() {
         {activePage === 'fixtures' && <GroupStageSection />}
         {activePage === 'standings' && <StandingsPage />}
         {activePage === 'knockout' && <KnockoutPage />}
+        {activePage === 'countries' && <CountryPage />}
       </AppShell>
 
       <AuthModal

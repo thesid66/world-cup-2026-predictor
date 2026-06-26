@@ -2,9 +2,12 @@ import {
   BadgeCheck,
   BarChart3,
   CalendarDays,
+  Check,
+  ChevronDown,
   Crosshair,
   Gauge,
   Medal,
+  Search,
   Shield,
   Sparkles,
   TrendingUp,
@@ -304,11 +307,9 @@ function RatingCard({ label, value, caption, icon: Icon }: RatingCardProps) {
         </span>
         <span className="text-3xl font-black text-white">{value}</span>
       </div>
-
       <div className="h-2 overflow-hidden rounded-full bg-white/10">
         <div className="h-full rounded-full bg-yellow-300" style={{ width: `${value}%` }} />
       </div>
-
       <p className="mt-3 text-sm font-black text-white">{label}</p>
       <p className="mt-1 text-xs leading-5 text-slate-400">{caption}</p>
     </article>
@@ -330,7 +331,6 @@ function SummaryCard({ label, value, detail, icon: Icon, tone = 'yellow' }: Summ
           <Icon className="size-5" />
         </span>
       </div>
-
       <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-400">{label}</p>
       <p className="mt-2 text-3xl font-black text-white sm:text-4xl">{value}</p>
       <p className="mt-2 text-xs leading-5 text-slate-300 sm:text-sm">{detail}</p>
@@ -345,7 +345,20 @@ export function CountryPage() {
   const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
   const { teams, groups, fixtures } = useTournamentData()
   const [selectedTeamId, setSelectedTeamId] = useState('australia')
+  const [selectorOpen, setSelectorOpen] = useState(false)
+  const [countrySearch, setCountrySearch] = useState('')
   const selectedTeam = teams.find((candidate) => candidate.id === selectedTeamId) ?? teams[0]
+
+  const filteredTeams = useMemo(() => {
+    const searchTerm = countrySearch.trim().toLowerCase()
+
+    if (!searchTerm) return teams
+
+    return teams.filter((candidate) => {
+      const searchableText = `${candidate.name} ${candidate.shortName} ${candidate.group} ${candidate.confederation}`.toLowerCase()
+      return searchableText.includes(searchTerm)
+    })
+  }, [countrySearch, teams])
 
   const countryFixtures = useMemo(
     () => selectedTeam ? fixtures.filter((fixture) => fixture.homeTeamId === selectedTeam.id || fixture.awayTeamId === selectedTeam.id) : [],
@@ -401,11 +414,11 @@ export function CountryPage() {
   const qualificationLabel = getQualificationLabel(tableRow, groupPosition || null)
 
   return (
-    <div className="grid gap-5 sm:gap-6">
-      <section className="relative overflow-hidden rounded-[1.8rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:rounded-[2rem] sm:p-6 lg:p-8">
+    <div className="grid min-w-0 gap-5 overflow-hidden sm:gap-6">
+      <section className="relative min-w-0 overflow-hidden rounded-[1.8rem] border border-white/10 bg-slate-950/70 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:rounded-[2rem] sm:p-6 lg:p-8">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(250,204,21,0.24),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.18),transparent_34%)]" />
-        <div className="relative grid gap-6 lg:grid-cols-[1.35fr_0.65fr] lg:items-stretch">
-          <div>
+        <div className="relative grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.65fr)] lg:items-stretch">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-yellow-950/20">
                 <Sparkles className="size-4" />
@@ -416,15 +429,15 @@ export function CountryPage() {
               </span>
             </div>
 
-            <div className="mt-8 flex flex-col gap-5 sm:flex-row sm:items-end">
-              <div className="flex size-28 items-center justify-center rounded-[2rem] border border-white/15 bg-white/10 shadow-2xl ring-1 ring-white/10 sm:size-36">
+            <div className="mt-8 flex min-w-0 flex-col gap-5 sm:flex-row sm:items-end">
+              <div className="flex size-28 shrink-0 items-center justify-center rounded-[2rem] border border-white/15 bg-white/10 shadow-2xl ring-1 ring-white/10 sm:size-36">
                 <TeamFlag code={team.flagCode} label={team.name} size="lg" className="scale-[2.6] sm:scale-[3.25]" />
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+              <div className="min-w-0 max-w-full overflow-hidden">
+                <p className="truncate text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
                   {group?.name ?? `Group ${team.group}`} · {team.confederation}
                 </p>
-                <h1 className="mt-2 text-5xl font-black leading-none tracking-tight text-white sm:text-7xl">
+                <h1 className="mt-2 max-w-full break-words text-4xl font-black leading-[0.95] tracking-tight text-white sm:text-6xl xl:text-7xl">
                   {team.name}
                 </h1>
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -466,38 +479,86 @@ export function CountryPage() {
         </div>
       </section>
 
-      <section className="rounded-[1.6rem] border border-white/10 bg-white/8 p-4 shadow-xl backdrop-blur-xl sm:rounded-3xl sm:p-5">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
+      <section className="relative z-20 rounded-[1.6rem] border border-white/10 bg-white/8 p-4 shadow-xl backdrop-blur-xl sm:rounded-3xl sm:p-5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)] lg:items-end">
+          <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.28em] text-sky-300">Country selector</p>
             <h2 className="mt-1 text-2xl font-black text-white">Preview any team profile</h2>
+            <p className="mt-2 text-sm font-bold text-slate-400">Search and switch teams without creating horizontal page overflow.</p>
           </div>
-          <p className="text-sm font-bold text-slate-400">Demo uses available ESPN fields and calculated metrics.</p>
-        </div>
-        <div className="flex snap-x gap-2 overflow-x-auto pb-1">
-          {teams.map((candidate) => {
-            const isActive = candidate.id === team.id
 
-            return (
-              <button
-                key={candidate.id}
-                type="button"
-                onClick={() => setSelectedTeamId(candidate.id)}
-                className={`flex shrink-0 snap-start items-center gap-2 rounded-full border px-4 py-2 text-sm font-black transition hover:-translate-y-0.5 ${
-                  isActive
-                    ? 'border-yellow-300/60 bg-yellow-300 text-slate-950 shadow-lg shadow-yellow-950/20'
-                    : 'border-white/10 bg-white/8 text-slate-200 hover:border-yellow-300/40 hover:bg-yellow-300/10 hover:text-white'
-                }`}
-              >
-                <TeamFlag code={candidate.flagCode} label={candidate.name} size="sm" />
-                {candidate.shortName}
-              </button>
-            )
-          })}
+          <div className="relative">
+            <button
+              type="button"
+              aria-expanded={selectorOpen}
+              onClick={() => setSelectorOpen((value) => !value)}
+              className="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-left shadow-xl ring-1 ring-white/5 transition hover:border-yellow-300/40 hover:bg-slate-950/80"
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <TeamFlag code={team.flagCode} label={team.name} size="md" />
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-black text-white">{team.name}</span>
+                  <span className="block truncate text-xs font-bold text-slate-400">Group {team.group} · {team.confederation}</span>
+                </span>
+              </span>
+              <ChevronDown className={`size-5 shrink-0 text-yellow-300 transition ${selectorOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {selectorOpen && (
+              <div className="absolute right-0 top-[calc(100%+0.5rem)] z-40 w-full overflow-hidden rounded-3xl border border-white/10 bg-slate-950/95 p-3 shadow-2xl shadow-black/50 backdrop-blur-2xl ring-1 ring-white/10">
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
+                  <input
+                    value={countrySearch}
+                    onChange={(event) => setCountrySearch(event.target.value)}
+                    placeholder="Search country, group or confederation"
+                    className="h-11 w-full rounded-2xl border border-white/10 bg-white/8 pl-10 pr-3 text-sm font-bold text-white outline-none placeholder:text-slate-500 focus:border-yellow-300/50 focus:ring-2 focus:ring-yellow-300/20"
+                    autoFocus
+                  />
+                </label>
+
+                <div className="mt-3 max-h-80 overflow-y-auto pr-1">
+                  {filteredTeams.map((candidate) => {
+                    const isActive = candidate.id === team.id
+
+                    return (
+                      <button
+                        key={candidate.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedTeamId(candidate.id)
+                          setCountrySearch('')
+                          setSelectorOpen(false)
+                        }}
+                        className={`flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-3 text-left transition ${
+                          isActive ? 'bg-yellow-300 text-slate-950' : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        <span className="flex min-w-0 items-center gap-3">
+                          <TeamFlag code={candidate.flagCode} label={candidate.name} size="sm" />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-black">{candidate.name}</span>
+                            <span className={`block truncate text-xs font-bold ${isActive ? 'text-slate-800' : 'text-slate-500'}`}>
+                              {candidate.shortName} · Group {candidate.group} · {candidate.confederation}
+                            </span>
+                          </span>
+                        </span>
+                        {isActive && <Check className="size-4 shrink-0" />}
+                      </button>
+                    )
+                  })}
+
+                  {filteredTeams.length === 0 && (
+                    <p className="rounded-2xl bg-white/8 px-3 py-4 text-sm font-bold text-slate-400">No country found.</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-5">
+      <section className="grid min-w-0 grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-5">
         <SummaryCard label="Record" value={`${tableRow?.won ?? 0}-${tableRow?.drawn ?? 0}-${tableRow?.lost ?? 0}`} detail="Wins, draws and losses from scored fixtures." icon={Trophy} />
         <SummaryCard label="Goals" value={`${tableRow?.goalsFor ?? 0}:${tableRow?.goalsAgainst ?? 0}`} detail="Goals for and against." icon={Crosshair} tone="emerald" />
         <SummaryCard label="Shots" value={formatNumber(shotsAverage)} detail="Average total shots when ESPN stats are loaded." icon={Zap} tone="sky" />
@@ -505,7 +566,7 @@ export function CountryPage() {
         <SummaryCard label="Cards" value={yellowCards + redCards} detail={`${yellowCards} yellow · ${redCards} red`} icon={Shield} tone="rose" />
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
+      <section className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <div className="rounded-[1.6rem] border border-white/10 bg-white/8 p-5 shadow-2xl backdrop-blur-xl sm:rounded-3xl">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
@@ -528,9 +589,7 @@ export function CountryPage() {
               <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-300">Match DNA</p>
               <h2 className="mt-2 text-3xl font-black text-white">Average stat profile</h2>
             </div>
-            <p className="max-w-sm text-xs font-bold leading-5 text-slate-400">
-              xG is not estimated. It will only show if ESPN provides it directly.
-            </p>
+            <p className="max-w-sm text-xs font-bold leading-5 text-slate-400">xG is not estimated. It will only show if ESPN provides it directly.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {[
@@ -559,7 +618,7 @@ export function CountryPage() {
           </div>
           <span className="rounded-full bg-sky-300/10 px-3 py-1 text-xs font-black text-sky-200 ring-1 ring-sky-300/20">{rows.length} fixtures</span>
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-3">
           {rows.map((row) => {
             const possession = getStatValue(row.countryStats, STAT_TYPES.possession)
             const shots = getStatValue(row.countryStats, STAT_TYPES.totalShots)
@@ -568,22 +627,20 @@ export function CountryPage() {
             const statusLabel = row.realMatch?.status.short ?? (isScored(row.score) ? 'FT' : 'NS')
 
             return (
-              <article key={row.fixture.id} className="group rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:-translate-y-1 hover:border-yellow-300/35 hover:bg-slate-950/60">
+              <article key={row.fixture.id} className="group min-w-0 rounded-3xl border border-white/10 bg-slate-950/40 p-4 transition hover:-translate-y-1 hover:border-yellow-300/35 hover:bg-slate-950/60">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300 ring-1 ring-white/10">Match {row.fixture.matchNumber}</span>
-                  <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${getResultClassName(row.result)}`}>
-                    {getResultLabel(row.result)} · {statusLabel}
-                  </span>
+                  <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${getResultClassName(row.result)}`}>{getResultLabel(row.result)} · {statusLabel}</span>
                 </div>
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">{row.isHome ? 'Home' : 'Away'} vs</p>
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-2 flex min-w-0 items-center gap-2">
                       <TeamFlag code={row.opponent?.flagCode} label={row.opponent?.name} size="md" />
                       <p className="truncate text-lg font-black text-white">{row.opponent?.name ?? 'TBD'}</p>
                     </div>
                   </div>
-                  <div className="rounded-2xl bg-white/10 px-4 py-3 text-center ring-1 ring-white/10">
+                  <div className="shrink-0 rounded-2xl bg-white/10 px-4 py-3 text-center ring-1 ring-white/10">
                     <p className="text-2xl font-black text-white">{row.countryScore ?? '-'}:{row.opponentScore ?? '-'}</p>
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Score</p>
                   </div>
@@ -594,8 +651,8 @@ export function CountryPage() {
                   <div className="rounded-2xl bg-white/8 p-3"><p className="text-lg font-black text-white">{formatNumber(shotsOnGoal)}</p><p className="text-[10px] font-black uppercase text-slate-500">On target</p></div>
                   <div className="rounded-2xl bg-white/8 p-3"><p className="text-lg font-black text-white">{formatNumber(corners)}</p><p className="text-[10px] font-black uppercase text-slate-500">Corners</p></div>
                 </div>
-                <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-400">
-                  <CalendarDays className="size-4 text-yellow-300" />
+                <div className="mt-4 flex min-w-0 items-center gap-2 text-xs font-bold text-slate-400">
+                  <CalendarDays className="size-4 shrink-0 text-yellow-300" />
                   <span>{row.fixture.date}</span>
                   <span>·</span>
                   <span className="truncate">{row.realMatch?.venue ?? row.fixture.venue}</span>
@@ -606,8 +663,8 @@ export function CountryPage() {
         </div>
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-[1fr_0.85fr]">
-        <div className="rounded-[1.6rem] border border-white/10 bg-white/8 p-5 shadow-2xl backdrop-blur-xl sm:rounded-3xl">
+      <section className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
+        <div className="overflow-hidden rounded-[1.6rem] border border-white/10 bg-white/8 p-5 shadow-2xl backdrop-blur-xl sm:rounded-3xl">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.28em] text-yellow-300">Player impact</p>
@@ -615,18 +672,15 @@ export function CountryPage() {
             </div>
             <Medal className="size-8 text-yellow-300" />
           </div>
-          <div className="overflow-hidden rounded-2xl border border-white/10">
-            <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto rounded-2xl border border-white/10">
+            <table className="w-full min-w-[34rem] text-left text-sm">
               <thead className="bg-slate-950/70 text-xs font-black uppercase tracking-[0.2em] text-slate-400">
                 <tr><th className="px-4 py-3">Player</th><th className="px-4 py-3 text-center">G</th><th className="px-4 py-3 text-center">YC</th><th className="px-4 py-3 text-center">RC</th><th className="px-4 py-3 text-center">Starts</th></tr>
               </thead>
               <tbody className="divide-y divide-white/10">
                 {playerImpact.slice(0, 8).map((player) => (
                   <tr key={player.name} className="bg-white/5 text-slate-200">
-                    <td className="px-4 py-3 font-black text-white">
-                      {player.name}
-                      {player.captain > 0 && <span className="ml-2 rounded-full bg-yellow-300/15 px-2 py-0.5 text-[10px] text-yellow-200">C</span>}
-                    </td>
+                    <td className="px-4 py-3 font-black text-white">{player.name}{player.captain > 0 && <span className="ml-2 rounded-full bg-yellow-300/15 px-2 py-0.5 text-[10px] text-yellow-200">C</span>}</td>
                     <td className="px-4 py-3 text-center font-black">{player.goals}</td>
                     <td className="px-4 py-3 text-center font-black">{player.yellowCards}</td>
                     <td className="px-4 py-3 text-center font-black">{player.redCards}</td>
@@ -651,9 +705,7 @@ export function CountryPage() {
             <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Most used formation</p>
               <p className="mt-2 text-4xl font-black text-white">{formationUsage[0]?.formation ?? '—'}</p>
-              <p className="mt-1 text-sm font-bold text-slate-400">
-                {formationUsage[0] ? `${formationUsage[0].count} loaded match${formationUsage[0].count === 1 ? '' : 'es'}` : 'Waiting for ESPN lineups'}
-              </p>
+              <p className="mt-1 text-sm font-bold text-slate-400">{formationUsage[0] ? `${formationUsage[0].count} loaded match${formationUsage[0].count === 1 ? '' : 'es'}` : 'Waiting for ESPN lineups'}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Latest XI</p>

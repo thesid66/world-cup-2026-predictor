@@ -25,18 +25,7 @@ import { useRealMatchStore } from '../../store/realMatchStore'
 import type { RealMatchData, RealMatchEvent, RealMatchLineupPlayer, RealMatchStatistic } from '../../types/realMatch'
 import type { Fixture, GroupCode, GroupTableRow, PredictionScore, Team, ThirdPlaceTableRow } from '../../types/tournament'
 
-const STAT_TYPES = {
-  possession: 'Ball Possession',
-  totalShots: 'Total Shots',
-  shotsOnGoal: 'Shots on Goal',
-  corners: 'Corner Kicks',
-  fouls: 'Fouls',
-  yellowCards: 'Yellow Cards',
-  redCards: 'Red Cards'
-} as const
-
-type StatType = (typeof STAT_TYPES)[keyof typeof STAT_TYPES]
-
+type StatKey = 'possession' | 'totalShots' | 'shotsOnGoal' | 'corners' | 'fouls' | 'yellowCards' | 'redCards'
 type CountryStatusTone = 'qualified' | 'eliminated' | 'race' | 'active' | 'pending'
 
 type CountryStatus = {
@@ -61,6 +50,7 @@ type CountryMatchRow = {
   countryStats: RealMatchStatistic[]
   opponentStats: RealMatchStatistic[]
   countryEvents: RealMatchEvent[]
+  lineupPlayers: RealMatchLineupPlayer[]
 }
 
 type PlayerImpactRow = {
@@ -70,6 +60,8 @@ type PlayerImpactRow = {
   redCards: number
   starts: number
   captain: number
+  ratingTotal: number
+  ratingCount: number
 }
 
 type RatingCardProps = {
@@ -95,7 +87,26 @@ type BenchmarkRowProps = {
   lowerIsBetter?: boolean
 }
 
+const STAT_ALIASES: Record<StatKey, string[]> = {
+  possession: ['ballpossession', 'possession', 'possessionpct', 'possessionpercentage'],
+  totalShots: ['totalshots', 'shots', 'shot', 'attempts', 'totalattempts'],
+  shotsOnGoal: ['shotsongoal', 'shotstarget', 'shotsontarget', 'sog', 'on target', 'ontarget'],
+  corners: ['cornerkicks', 'corners', 'woncorners'],
+  fouls: ['fouls', 'foulscommitted'],
+  yellowCards: ['yellowcards', 'yellowcard', 'yellows'],
+  redCards: ['redcards', 'redcard', 'reds']
+}
+
 function normalizeText(value: string | undefined) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]/g, '')
+}
+
+function normalizeStatText(value: string | undefined) {
   return String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
@@ -110,8 +121,18 @@ function parseStatNumber(value: RealMatchStatistic['value']): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function getStatValue(stats: RealMatchStatistic[], type: StatType): number | null {
-  const stat = stats.find((item) => item.type === type)
+function parseRating(value: RealMatchLineupPlayer['rating']): number | null {
+  const parsed = parseStatNumber(value)
+  return parsed !== null && parsed > 0 ? parsed : null
+}
+
+function getStatValue(stats: RealMatchStatistic[], key: StatKey): number | null {
+  const aliases = STAT_ALIASES[key]
+  const stat = stats.find((item) => {
+    const normalizedType = normalizeStatText(item.type)
+    return aliases.some((alias) => normalizedType === alias || normalizedType.includes(alias) || alias.includes(normalizedType))
+  })
+
   return stat ? parseStatNumber(stat.value) : null
 }
 
@@ -127,6 +148,14 @@ function sum(values: Array<number | null>): number {
   return values.reduce<number>((total, value) => total + (typeof value === 'number' ? value : 0), 0)
 }
 
+function sumIfAvailable(values: Array<number | null>): number | null {
+  const cleanValues = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+
+  if (!cleanValues.length) return null
+
+  return cleanValues.reduce<number>((total, value) => total + value, 0)
+}
+
 function formatNumber(value: number | null, suffix = '') {
   if (value === null || !Number.isFinite(value)) return '—'
   return `${Number.isInteger(value) ? value : value.toFixed(1)}${suffix}`
@@ -140,20 +169,25 @@ function clampRating(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)))
 }
 
+function weightedScore(value: number | null, maxValue: number, weight: number) {
+  if (value === null || !Number.isFinite(value) || maxValue <= 0) return 0
+  return Math.min(Math.max(value, 0) / maxValue, 1) * weight
+}
+
 function isScored(score?: PredictionScore): score is ScoredPredictionScore {
   return Boolean(score && typeof score.homeScore === 'number' && typeof score.awayScore === 'number')
 }
 
 function isGoalEvent(event: RealMatchEvent) {
-  return `${event.type ?? ''} ${event.detail ?? ''}`.toLowerCase().includes('goal')
+  return `${event.type ?? ''} ${event.detail ?? ''} ${event.displayText ?? ''}`.toLowerCase().includes('goal')
 }
 
 function isYellowCardEvent(event: RealMatchEvent) {
-  return `${event.type ?? ''} ${event.detail ?? ''}`.toLowerCase().includes('yellow')
+  return `${event.type ?? ''} ${event.detail ?? ''} ${event.displayText ?? ''}`.toLowerCase().includes('yellow')
 }
 
 function isRedCardEvent(event: RealMatchEvent) {
-  return `${event.type ?? ''} ${event.detail ?? ''}`.toLowerCase().includes('red')
+  return `${event.type ?? ''} ${event.detail ?? ''} ${event.displayText ?? ''}`.toLowerCase().includes('red')
 }
 
 function getResult(countryScore: number | null, opponentScore: number | null): CountryMatchRow['result'] {
@@ -185,32 +219,51 @@ function getCountryStatusClassName(tone: CountryStatusTone) {
   return 'bg-white/10 text-slate-300 ring-white/10'
 }
 
-function getTeamStatsForMatch(match: RealMatchData | undefined, isHome: boolean) {
-  if (!match?.statistics.length) return []
-  return match.statistics[isHome ? 0 : 1]?.statistics ?? []
+function namesMatch(left: string | undefined, right: string | undefined) {
+  const a = normalizeText(left)
+  const b = normalizeText(right)
+
+  if (!a || !b) return false
+
+  return a === b || a.includes(b) || b.includes(a)
 }
 
-function getOpponentStatsForMatch(match: RealMatchData | undefined, isHome: boolean) {
+function getTeamStatsForMatch(match: RealMatchData | undefined, team: Team, isHome: boolean) {
   if (!match?.statistics.length) return []
-  return match.statistics[isHome ? 1 : 0]?.statistics ?? []
+
+  const expectedMatchTeam = isHome ? match.homeTeam : match.awayTeam
+  const matchedStats = match.statistics.find(
+    (item) => namesMatch(item.teamName, expectedMatchTeam.name) || namesMatch(item.teamName, team.name) || namesMatch(item.teamName, team.shortName)
+  )
+
+  return matchedStats?.statistics ?? match.statistics[isHome ? 0 : 1]?.statistics ?? []
 }
 
-function eventBelongsToCountry(event: RealMatchEvent, match: RealMatchData | undefined, isHome: boolean) {
+function getOpponentStatsForMatch(match: RealMatchData | undefined, opponent: Team | undefined, isHome: boolean) {
+  if (!match?.statistics.length) return []
+
+  const expectedMatchTeam = isHome ? match.awayTeam : match.homeTeam
+  const matchedStats = match.statistics.find(
+    (item) => namesMatch(item.teamName, expectedMatchTeam.name) || namesMatch(item.teamName, opponent?.name) || namesMatch(item.teamName, opponent?.shortName)
+  )
+
+  return matchedStats?.statistics ?? match.statistics[isHome ? 1 : 0]?.statistics ?? []
+}
+
+function eventBelongsToCountry(event: RealMatchEvent, match: RealMatchData | undefined, team: Team, isHome: boolean) {
   if (!match || !event.teamName) return false
 
-  const countryName = isHome ? match.homeTeam.name : match.awayTeam.name
-  const eventTeam = normalizeText(event.teamName)
-  const teamName = normalizeText(countryName)
+  const expectedMatchTeam = isHome ? match.homeTeam : match.awayTeam
 
-  return eventTeam.includes(teamName) || teamName.includes(eventTeam)
+  return namesMatch(event.teamName, expectedMatchTeam.name) || namesMatch(event.teamName, team.name) || namesMatch(event.teamName, team.shortName)
 }
 
-function getCountryLineupPlayers(row: CountryMatchRow): RealMatchLineupPlayer[] {
-  const lineups = row.realMatch?.lineups
+function getCountryLineupPlayers(match: RealMatchData | undefined, isHome: boolean): RealMatchLineupPlayer[] {
+  const lineups = match?.lineups
 
   if (!lineups) return []
 
-  return row.isHome ? lineups.homeXi : lineups.awayXi
+  return isHome ? lineups.homeXi : lineups.awayXi
 }
 
 function getCountryMatchRows(args: {
@@ -232,6 +285,7 @@ function getCountryMatchRows(args: {
       const realMatch = realMatches[fixture.id]
       const countryScore = isScored(score) ? (isHome ? score.homeScore : score.awayScore) : null
       const opponentScore = isScored(score) ? (isHome ? score.awayScore : score.homeScore) : null
+      const lineupPlayers = getCountryLineupPlayers(realMatch, isHome)
 
       return {
         fixture,
@@ -242,11 +296,12 @@ function getCountryMatchRows(args: {
         countryScore,
         opponentScore,
         result: getResult(countryScore, opponentScore),
-        countryStats: getTeamStatsForMatch(realMatch, isHome),
-        opponentStats: getOpponentStatsForMatch(realMatch, isHome),
+        countryStats: getTeamStatsForMatch(realMatch, team, isHome),
+        opponentStats: getOpponentStatsForMatch(realMatch, opponent, isHome),
         countryEvents: (realMatch?.events ?? []).filter(
-          (event) => eventBelongsToCountry(event, realMatch, isHome) && (isGoalEvent(event) || isYellowCardEvent(event) || isRedCardEvent(event))
-        )
+          (event) => eventBelongsToCountry(event, realMatch, team, isHome) && (isGoalEvent(event) || isYellowCardEvent(event) || isRedCardEvent(event))
+        ),
+        lineupPlayers
       }
     })
 }
@@ -283,7 +338,7 @@ function getCountryStatus(args: {
   return { label: row.played > 0 ? 'Active' : 'Upcoming', tone: row.played > 0 ? 'active' : 'pending' }
 }
 
-function buildPlayerImpact(rows: CountryMatchRow[]) {
+function buildPlayerImpact(rows: CountryMatchRow[], expectedGoals: number, expectedYellowCards: number, expectedRedCards: number) {
   const players = new Map<string, PlayerImpactRow>()
 
   function getPlayer(name: string) {
@@ -296,7 +351,9 @@ function buildPlayerImpact(rows: CountryMatchRow[]) {
         yellowCards: 0,
         redCards: 0,
         starts: 0,
-        captain: 0
+        captain: 0,
+        ratingTotal: 0,
+        ratingCount: 0
       })
     }
 
@@ -314,18 +371,45 @@ function buildPlayerImpact(rows: CountryMatchRow[]) {
       if (isRedCardEvent(event)) player.redCards += 1
     })
 
-    getCountryLineupPlayers(row).forEach((lineupPlayer) => {
+    row.lineupPlayers.forEach((lineupPlayer) => {
       const player = getPlayer(lineupPlayer.name)
+      const rating = parseRating(lineupPlayer.rating)
+
       player.starts += 1
       if (lineupPlayer.captain) player.captain += 1
+      if (rating !== null) {
+        player.ratingTotal += rating
+        player.ratingCount += 1
+      }
     })
   })
+
+  const existingPlayers = Array.from(players.values())
+  const assignedGoals = sum(existingPlayers.map((player) => player.goals))
+  const assignedYellowCards = sum(existingPlayers.map((player) => player.yellowCards))
+  const assignedRedCards = sum(existingPlayers.map((player) => player.redCards))
+
+  if (expectedGoals > assignedGoals) getPlayer('Unassigned goals').goals = expectedGoals - assignedGoals
+  if (expectedYellowCards > assignedYellowCards) getPlayer('Unassigned cards').yellowCards = expectedYellowCards - assignedYellowCards
+  if (expectedRedCards > assignedRedCards) getPlayer('Unassigned red cards').redCards = expectedRedCards - assignedRedCards
 
   return Array.from(players.values()).sort((a, b) => {
     if (b.goals !== a.goals) return b.goals - a.goals
     if (b.starts !== a.starts) return b.starts - a.starts
+    if (b.yellowCards + b.redCards !== a.yellowCards + a.redCards) return b.yellowCards + b.redCards - (a.yellowCards + a.redCards)
     return a.name.localeCompare(b.name)
   })
+}
+
+function getAveragePlayerRating(players: PlayerImpactRow[]) {
+  const ratedPlayers = players.filter((player) => player.ratingCount > 0)
+
+  if (!ratedPlayers.length) return null
+
+  const ratingTotal = ratedPlayers.reduce((total, player) => total + player.ratingTotal, 0)
+  const ratingCount = ratedPlayers.reduce((total, player) => total + player.ratingCount, 0)
+
+  return ratingCount ? ratingTotal / ratingCount : null
 }
 
 function RatingCard({ label, value, caption, icon: Icon }: RatingCardProps) {
@@ -464,15 +548,20 @@ export function CountryPage() {
   const rows = getCountryMatchRows({ team, teams, fixtures, scores, realMatches })
   const completedRows = rows.filter((row) => row.countryScore !== null && row.opponentScore !== null)
   const statRows = rows.filter((row) => row.countryStats.length)
-  const possessionAverage = average(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.possession)))
-  const shotsAverage = average(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.totalShots)))
-  const shotsOnGoalAverage = average(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.shotsOnGoal)))
-  const cornersAverage = average(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.corners)))
-  const foulsAverage = average(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.fouls)))
-  const opponentShotsOnGoalAverage = average(statRows.map((row) => getStatValue(row.opponentStats, STAT_TYPES.shotsOnGoal)))
-  const yellowCards = sum(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.yellowCards)))
-  const redCards = sum(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.redCards)))
-  const cardsPerMatch = statRows.length ? (yellowCards + redCards) / statRows.length : null
+  const allCountryEvents = rows.flatMap((row) => row.countryEvents)
+  const possessionAverage = average(statRows.map((row) => getStatValue(row.countryStats, 'possession')))
+  const shotsAverage = average(statRows.map((row) => getStatValue(row.countryStats, 'totalShots')))
+  const shotsOnGoalAverage = average(statRows.map((row) => getStatValue(row.countryStats, 'shotsOnGoal')))
+  const cornersAverage = average(statRows.map((row) => getStatValue(row.countryStats, 'corners')))
+  const foulsAverage = average(statRows.map((row) => getStatValue(row.countryStats, 'fouls')))
+  const opponentShotsOnGoalAverage = average(statRows.map((row) => getStatValue(row.opponentStats, 'shotsOnGoal')))
+  const yellowCardsFromStats = sumIfAvailable(statRows.map((row) => getStatValue(row.countryStats, 'yellowCards')))
+  const redCardsFromStats = sumIfAvailable(statRows.map((row) => getStatValue(row.countryStats, 'redCards')))
+  const yellowCardsFromEvents = allCountryEvents.filter(isYellowCardEvent).length
+  const redCardsFromEvents = allCountryEvents.filter(isRedCardEvent).length
+  const yellowCards = yellowCardsFromStats ?? yellowCardsFromEvents
+  const redCards = redCardsFromStats ?? redCardsFromEvents
+  const cardsPerMatch = completedRows.length ? (yellowCards + redCards) / completedRows.length : null
   const goalsPerMatch = tableRow?.played ? tableRow.goalsFor / tableRow.played : 0
   const goalsAgainstPerMatch = tableRow?.played ? tableRow.goalsAgainst / tableRow.played : 0
   const cleanSheets = completedRows.filter((row) => row.opponentScore === 0).length
@@ -482,29 +571,38 @@ export function CountryPage() {
   const cleanSheetRate = completedRows.length ? cleanSheets / completedRows.length : 0
   const shotAccuracy = shotsAverage && shotsOnGoalAverage ? (shotsOnGoalAverage / shotsAverage) * 100 : null
   const conversionRate = shotsAverage && tableRow?.played ? (tableRow.goalsFor / (shotsAverage * tableRow.played)) * 100 : null
+  const playerImpact = buildPlayerImpact(rows, tableRow?.goalsFor ?? 0, yellowCards, redCards)
+  const averagePlayerRating = getAveragePlayerRating(playerImpact)
   const attackRating = clampRating(
-    goalsPerMatch * 24 + (shotsOnGoalAverage ?? 0) * 12 + (shotsAverage ?? 0) * 4 + (cornersAverage ?? 0) * 4 + (conversionRate ?? 0) * 0.45
+    weightedScore(goalsPerMatch, 3, 35) + weightedScore(shotsOnGoalAverage, 7, 25) + weightedScore(shotsAverage, 20, 20) + weightedScore(conversionRate, 30, 20)
   )
-  const defenceRating = clampRating(100 - goalsAgainstPerMatch * 24 - (opponentShotsOnGoalAverage ?? 0) * 6 + cleanSheetRate * 20)
-  const controlRating = clampRating((possessionAverage ?? 0) * 0.8 + (shotsAverage ?? 0) * 2 + (cornersAverage ?? 0) * 5 - (foulsAverage ?? 0) * 1.2)
-  const disciplineRating = clampRating(100 - yellowCards * 8 - redCards * 20 - (foulsAverage ?? 0) * 2)
-  const playerImpact = buildPlayerImpact(rows)
+  const defenceRating = clampRating(
+    100 - goalsAgainstPerMatch * 26 - (opponentShotsOnGoalAverage ?? 0) * 7 + cleanSheetRate * 18
+  )
+  const controlRating = statRows.length
+    ? clampRating(weightedScore(possessionAverage, 70, 50) + weightedScore(shotsAverage, 20, 25) + weightedScore(cornersAverage, 8, 25) - (foulsAverage ?? 0) * 0.8)
+    : 0
+  const disciplineRating = completedRows.length
+    ? clampRating(100 - (cardsPerMatch ?? 0) * 22 - (foulsAverage ?? 0) * 1.5)
+    : 0
   const espnLoadedCount = rows.filter((row) => row.realMatch).length
 
   const groupSnapshots = teams
     .filter((candidate) => candidate.group === team.group)
     .map((groupTeam) => {
       const groupTeamRows = getCountryMatchRows({ team: groupTeam, teams, fixtures, scores, realMatches })
+      const groupTeamCompletedRows = groupTeamRows.filter((row) => row.countryScore !== null && row.opponentScore !== null)
       const groupTeamStatRows = groupTeamRows.filter((row) => row.countryStats.length)
+      const groupTeamEvents = groupTeamRows.flatMap((row) => row.countryEvents)
       const groupTeamTableRow = groupTable.find((row) => row.teamId === groupTeam.id)
-      const groupTeamCards = sum(groupTeamStatRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.yellowCards))) +
-        sum(groupTeamStatRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.redCards)))
+      const groupTeamYellowCards = sumIfAvailable(groupTeamStatRows.map((row) => getStatValue(row.countryStats, 'yellowCards'))) ?? groupTeamEvents.filter(isYellowCardEvent).length
+      const groupTeamRedCards = sumIfAvailable(groupTeamStatRows.map((row) => getStatValue(row.countryStats, 'redCards'))) ?? groupTeamEvents.filter(isRedCardEvent).length
 
       return {
         goalsPerMatch: groupTeamTableRow?.played ? groupTeamTableRow.goalsFor / groupTeamTableRow.played : null,
-        shotsAverage: average(groupTeamStatRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.totalShots))),
-        possessionAverage: average(groupTeamStatRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.possession))),
-        cardsPerMatch: groupTeamStatRows.length ? groupTeamCards / groupTeamStatRows.length : null
+        shotsAverage: average(groupTeamStatRows.map((row) => getStatValue(row.countryStats, 'totalShots'))),
+        possessionAverage: average(groupTeamStatRows.map((row) => getStatValue(row.countryStats, 'possession'))),
+        cardsPerMatch: groupTeamCompletedRows.length ? (groupTeamYellowCards + groupTeamRedCards) / groupTeamCompletedRows.length : null
       }
     })
   const groupBenchmark = {
@@ -524,9 +622,6 @@ export function CountryPage() {
               <span className="inline-flex items-center gap-2 rounded-full bg-yellow-300 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-950 shadow-lg shadow-yellow-950/20">
                 <Sparkles className="size-4" />
                 Country intelligence demo
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/8 px-4 py-2 text-xs font-black text-slate-200">
-                ESPN stats · no commentary feed
               </span>
             </div>
 
@@ -670,12 +765,13 @@ export function CountryPage() {
         </div>
       </section>
 
-      <section className="grid min-w-0 grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-5">
+      <section className="grid min-w-0 grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-6">
         <SummaryCard label="Record" value={`${tableRow?.won ?? 0}-${tableRow?.drawn ?? 0}-${tableRow?.lost ?? 0}`} detail="Wins, draws and losses from scored fixtures." icon={Trophy} />
         <SummaryCard label="Goals" value={`${tableRow?.goalsFor ?? 0}:${tableRow?.goalsAgainst ?? 0}`} detail="Goals for and against." icon={Crosshair} tone="emerald" />
         <SummaryCard label="Shots" value={formatNumber(shotsAverage)} detail="Average total shots when ESPN stats are loaded." icon={Zap} tone="sky" />
         <SummaryCard label="Accuracy" value={formatPercent(shotAccuracy)} detail="Shots on goal divided by total shots." icon={Gauge} />
         <SummaryCard label="Cards" value={yellowCards + redCards} detail={`${yellowCards} yellow · ${redCards} red`} icon={Shield} tone="rose" />
+        <SummaryCard label="Avg rating" value={formatNumber(averagePlayerRating)} detail="Player rating, only if ESPN provides lineup ratings." icon={Medal} tone="yellow" />
       </section>
 
       <section className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
@@ -685,13 +781,13 @@ export function CountryPage() {
               <p className="text-xs font-black uppercase tracking-[0.28em] text-yellow-300">Performance engine</p>
               <h2 className="mt-2 text-3xl font-black text-white">Generated ratings</h2>
             </div>
-            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300 ring-1 ring-white/10">ESPN-derived</span>
+            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300 ring-1 ring-white/10">Rebalanced</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <RatingCard label="Attack rating" value={attackRating} caption="Goals, shots, shots on goal, corners and conversion." icon={TrendingUp} />
+            <RatingCard label="Attack rating" value={attackRating} caption="Goals, shots, shots on goal and conversion. Scaled, not capped by raw shot volume." icon={TrendingUp} />
             <RatingCard label="Control rating" value={controlRating} caption="Possession, shots, corners and fouls balance." icon={BarChart3} />
             <RatingCard label="Defence rating" value={defenceRating} caption="Goals conceded, clean sheets and opponent pressure." icon={Shield} />
-            <RatingCard label="Discipline rating" value={disciplineRating} caption="Fouls, yellow cards and red cards." icon={BadgeCheck} />
+            <RatingCard label="Discipline rating" value={disciplineRating} caption="Cards and fouls. Uses event cards when ESPN team-card stats are missing." icon={BadgeCheck} />
           </div>
         </div>
 
@@ -732,10 +828,10 @@ export function CountryPage() {
         </div>
         <div className="grid min-w-0 gap-4 lg:grid-cols-3">
           {rows.map((row) => {
-            const possession = getStatValue(row.countryStats, STAT_TYPES.possession)
-            const shots = getStatValue(row.countryStats, STAT_TYPES.totalShots)
-            const shotsOnGoal = getStatValue(row.countryStats, STAT_TYPES.shotsOnGoal)
-            const corners = getStatValue(row.countryStats, STAT_TYPES.corners)
+            const possession = getStatValue(row.countryStats, 'possession')
+            const shots = getStatValue(row.countryStats, 'totalShots')
+            const shotsOnGoal = getStatValue(row.countryStats, 'shotsOnGoal')
+            const corners = getStatValue(row.countryStats, 'corners')
             const statusLabel = row.realMatch?.status.short ?? (isScored(row.score) ? 'FT' : 'NS')
 
             return (
@@ -780,26 +876,31 @@ export function CountryPage() {
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.28em] text-yellow-300">Player impact</p>
-              <h2 className="mt-2 text-3xl font-black text-white">Goals, cards and starts</h2>
+              <h2 className="mt-2 text-3xl font-black text-white">Goals, cards, starts and ratings</h2>
             </div>
             <Medal className="size-8 text-yellow-300" />
           </div>
           <div className="overflow-x-auto rounded-2xl border border-white/10">
-            <table className="w-full min-w-[34rem] text-left text-sm">
+            <table className="w-full min-w-[38rem] text-left text-sm">
               <thead className="bg-slate-950/70 text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                <tr><th className="px-4 py-3">Player</th><th className="px-4 py-3 text-center">G</th><th className="px-4 py-3 text-center">YC</th><th className="px-4 py-3 text-center">RC</th><th className="px-4 py-3 text-center">Starts</th></tr>
+                <tr><th className="px-4 py-3">Player</th><th className="px-4 py-3 text-center">G</th><th className="px-4 py-3 text-center">YC</th><th className="px-4 py-3 text-center">RC</th><th className="px-4 py-3 text-center">Starts</th><th className="px-4 py-3 text-center">Rating</th></tr>
               </thead>
               <tbody className="divide-y divide-white/10">
-                {playerImpact.slice(0, 8).map((player) => (
-                  <tr key={player.name} className="bg-white/5 text-slate-200">
-                    <td className="px-4 py-3 font-black text-white">{player.name}{player.captain > 0 && <span className="ml-2 rounded-full bg-yellow-300/15 px-2 py-0.5 text-[10px] text-yellow-200">C</span>}</td>
-                    <td className="px-4 py-3 text-center font-black">{player.goals}</td>
-                    <td className="px-4 py-3 text-center font-black">{player.yellowCards}</td>
-                    <td className="px-4 py-3 text-center font-black">{player.redCards}</td>
-                    <td className="px-4 py-3 text-center font-black">{player.starts}</td>
-                  </tr>
-                ))}
-                {playerImpact.length === 0 && <tr><td className="px-4 py-5 text-sm font-bold text-slate-400" colSpan={5}>ESPN player events or lineups are not loaded for this country yet.</td></tr>}
+                {playerImpact.slice(0, 9).map((player) => {
+                  const averageRating = player.ratingCount ? player.ratingTotal / player.ratingCount : null
+
+                  return (
+                    <tr key={player.name} className="bg-white/5 text-slate-200">
+                      <td className="px-4 py-3 font-black text-white">{player.name}{player.captain > 0 && <span className="ml-2 rounded-full bg-yellow-300/15 px-2 py-0.5 text-[10px] text-yellow-200">C</span>}</td>
+                      <td className="px-4 py-3 text-center font-black">{player.goals}</td>
+                      <td className="px-4 py-3 text-center font-black">{player.yellowCards}</td>
+                      <td className="px-4 py-3 text-center font-black">{player.redCards}</td>
+                      <td className="px-4 py-3 text-center font-black">{player.starts}</td>
+                      <td className="px-4 py-3 text-center font-black">{formatNumber(averageRating)}</td>
+                    </tr>
+                  )
+                })}
+                {playerImpact.length === 0 && <tr><td className="px-4 py-5 text-sm font-bold text-slate-400" colSpan={6}>ESPN player events or lineups are not loaded for this country yet.</td></tr>}
               </tbody>
             </table>
           </div>

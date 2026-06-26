@@ -34,28 +34,27 @@ function isLockedQualifier(team: QualifiedTeamRow) {
   return team.isGroupComplete || team.directQualificationStatus === 'qualified'
 }
 
-function getQualificationProgressLabel(team: QualifiedTeamRow) {
-  if (team.isGroupComplete) return 'Confirmed from completed group'
-  if (team.directQualificationStatus === 'qualified') return 'Mathematically qualified'
-
-  return 'Provisional'
-}
-
-function getQualificationProgressClass(team: QualifiedTeamRow) {
-  return isLockedQualifier(team) ? 'text-emerald-300' : 'text-yellow-300'
-}
-
 type QualifiedTeamCardProps = {
   team: QualifiedTeamRow
 }
 
 function QualifiedTeamCard({ team }: QualifiedTeamCardProps) {
+  const isConfirmed = isLockedQualifier(team)
+
   return (
     <article className="rounded-2xl border border-white/10 bg-slate-950/35 p-4 transition hover:-translate-y-0.5 hover:border-yellow-300/30 hover:bg-white/8">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300">
-          {team.seedLabel}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-slate-300">
+            {team.seedLabel}
+          </span>
+
+          {isConfirmed && (
+            <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-xs font-black text-emerald-200 ring-1 ring-emerald-300/30">
+              Confirmed
+            </span>
+          )}
+        </div>
 
         <span
           className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${getSourceClass(team)}`}
@@ -96,10 +95,6 @@ function QualifiedTeamCard({ team }: QualifiedTeamCardProps) {
           <p className="text-sm font-black text-white">{team.played}</p>
         </div>
       </div>
-
-      <p className={`mt-4 text-xs font-black ${getQualificationProgressClass(team)}`}>
-        {getQualificationProgressLabel(team)}
-      </p>
     </article>
   )
 }

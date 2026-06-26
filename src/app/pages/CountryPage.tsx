@@ -12,7 +12,6 @@ import {
   Sparkles,
   TrendingUp,
   Trophy,
-  Users,
   Zap
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -78,6 +77,14 @@ type SummaryCardProps = {
   detail: string
   icon: typeof Trophy
   tone?: 'yellow' | 'emerald' | 'sky' | 'rose'
+}
+
+type BenchmarkRowProps = {
+  label: string
+  countryValue: number | null
+  groupValue: number | null
+  suffix?: string
+  lowerIsBetter?: boolean
 }
 
 function normalizeText(value: string | undefined) {
@@ -281,23 +288,6 @@ function buildPlayerImpact(rows: CountryMatchRow[]) {
   })
 }
 
-function getFormationUsage(rows: CountryMatchRow[]) {
-  const formations = new Map<string, number>()
-
-  rows.forEach((row) => {
-    const lineups = row.realMatch?.lineups
-    const formation = row.isHome ? lineups?.homeFormation : lineups?.awayFormation
-
-    if (!formation) return
-
-    formations.set(formation, (formations.get(formation) ?? 0) + 1)
-  })
-
-  return Array.from(formations.entries())
-    .map(([formation, count]) => ({ formation, count }))
-    .sort((a, b) => b.count - a.count)
-}
-
 function RatingCard({ label, value, caption, icon: Icon }: RatingCardProps) {
   return (
     <article className="rounded-2xl border border-white/10 bg-slate-950/45 p-4 shadow-xl shadow-black/10 ring-1 ring-white/5">
@@ -335,6 +325,31 @@ function SummaryCard({ label, value, detail, icon: Icon, tone = 'yellow' }: Summ
       <p className="mt-2 text-3xl font-black text-white sm:text-4xl">{value}</p>
       <p className="mt-2 text-xs leading-5 text-slate-300 sm:text-sm">{detail}</p>
     </article>
+  )
+}
+
+function BenchmarkRow({ label, countryValue, groupValue, suffix = '', lowerIsBetter = false }: BenchmarkRowProps) {
+  const hasDelta = countryValue !== null && groupValue !== null
+  const delta = hasDelta ? countryValue - groupValue : null
+  const isPositive = delta !== null && (lowerIsBetter ? delta < 0 : delta > 0)
+  const deltaLabel = delta === null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}${suffix}`
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">{label}</p>
+          <p className="mt-2 text-2xl font-black text-white">{formatNumber(countryValue, suffix)}</p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${isPositive ? 'bg-emerald-300/15 text-emerald-200 ring-emerald-300/25' : 'bg-white/10 text-slate-300 ring-white/10'}`}>
+          {deltaLabel}
+        </span>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3 text-xs font-bold text-slate-400">
+        <span>Group avg</span>
+        <span>{formatNumber(groupValue, suffix)}</span>
+      </div>
+    </div>
   )
 }
 
@@ -394,9 +409,13 @@ export function CountryPage() {
   const opponentShotsOnGoalAverage = average(statRows.map((row) => getStatValue(row.opponentStats, STAT_TYPES.shotsOnGoal)))
   const yellowCards = sum(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.yellowCards)))
   const redCards = sum(statRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.redCards)))
+  const cardsPerMatch = statRows.length ? (yellowCards + redCards) / statRows.length : null
   const goalsPerMatch = tableRow?.played ? tableRow.goalsFor / tableRow.played : 0
   const goalsAgainstPerMatch = tableRow?.played ? tableRow.goalsAgainst / tableRow.played : 0
   const cleanSheets = completedRows.filter((row) => row.opponentScore === 0).length
+  const failedToScore = completedRows.filter((row) => row.countryScore === 0).length
+  const wins = completedRows.filter((row) => row.result === 'win').length
+  const winRate = completedRows.length ? (wins / completedRows.length) * 100 : null
   const cleanSheetRate = completedRows.length ? cleanSheets / completedRows.length : 0
   const shotAccuracy = shotsAverage && shotsOnGoalAverage ? (shotsOnGoalAverage / shotsAverage) * 100 : null
   const conversionRate = shotsAverage && tableRow?.played ? (tableRow.goalsFor / (shotsAverage * tableRow.played)) * 100 : null
@@ -407,11 +426,31 @@ export function CountryPage() {
   const controlRating = clampRating((possessionAverage ?? 0) * 0.8 + (shotsAverage ?? 0) * 2 + (cornersAverage ?? 0) * 5 - (foulsAverage ?? 0) * 1.2)
   const disciplineRating = clampRating(100 - yellowCards * 8 - redCards * 20 - (foulsAverage ?? 0) * 2)
   const playerImpact = buildPlayerImpact(rows)
-  const formationUsage = getFormationUsage(rows)
-  const latestLineupRow = [...rows].reverse().find((row) => getCountryLineupPlayers(row).length > 0)
-  const latestXi = latestLineupRow ? getCountryLineupPlayers(latestLineupRow) : []
   const espnLoadedCount = rows.filter((row) => row.realMatch).length
   const qualificationLabel = getQualificationLabel(tableRow, groupPosition || null)
+
+  const groupSnapshots = teams
+    .filter((candidate) => candidate.group === team.group)
+    .map((groupTeam) => {
+      const groupTeamRows = getCountryMatchRows({ team: groupTeam, teams, fixtures, scores, realMatches })
+      const groupTeamStatRows = groupTeamRows.filter((row) => row.countryStats.length)
+      const groupTeamTableRow = groupTable.find((row) => row.teamId === groupTeam.id)
+      const groupTeamCards = sum(groupTeamStatRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.yellowCards))) +
+        sum(groupTeamStatRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.redCards)))
+
+      return {
+        goalsPerMatch: groupTeamTableRow?.played ? groupTeamTableRow.goalsFor / groupTeamTableRow.played : null,
+        shotsAverage: average(groupTeamStatRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.totalShots))),
+        possessionAverage: average(groupTeamStatRows.map((row) => getStatValue(row.countryStats, STAT_TYPES.possession))),
+        cardsPerMatch: groupTeamStatRows.length ? groupTeamCards / groupTeamStatRows.length : null
+      }
+    })
+  const groupBenchmark = {
+    goalsPerMatch: average(groupSnapshots.map((snapshot) => snapshot.goalsPerMatch)),
+    shotsAverage: average(groupSnapshots.map((snapshot) => snapshot.shotsAverage)),
+    possessionAverage: average(groupSnapshots.map((snapshot) => snapshot.possessionAverage)),
+    cardsPerMatch: average(groupSnapshots.map((snapshot) => snapshot.cardsPerMatch))
+  }
 
   return (
     <div className="grid min-w-0 gap-5 overflow-hidden sm:gap-6">
@@ -696,28 +735,31 @@ export function CountryPage() {
         <div className="rounded-[1.6rem] border border-white/10 bg-slate-950/45 p-5 shadow-2xl backdrop-blur-xl sm:rounded-3xl">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-300">Tactical board</p>
-              <h2 className="mt-2 text-3xl font-black text-white">Lineup profile</h2>
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-300">Recommended insight</p>
+              <h2 className="mt-2 text-3xl font-black text-white">Group benchmark</h2>
             </div>
-            <Users className="size-8 text-emerald-300" />
+            <BarChart3 className="size-8 text-emerald-300" />
           </div>
+
           <div className="grid gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Most used formation</p>
-              <p className="mt-2 text-4xl font-black text-white">{formationUsage[0]?.formation ?? '—'}</p>
-              <p className="mt-1 text-sm font-bold text-slate-400">{formationUsage[0] ? `${formationUsage[0].count} loaded match${formationUsage[0].count === 1 ? '' : 'es'}` : 'Waiting for ESPN lineups'}</p>
+            <BenchmarkRow label="Goals / match" countryValue={goalsPerMatch} groupValue={groupBenchmark.goalsPerMatch} />
+            <BenchmarkRow label="Shots / match" countryValue={shotsAverage} groupValue={groupBenchmark.shotsAverage} />
+            <BenchmarkRow label="Possession" countryValue={possessionAverage} groupValue={groupBenchmark.possessionAverage} suffix="%" />
+            <BenchmarkRow label="Cards / match" countryValue={cardsPerMatch} groupValue={groupBenchmark.cardsPerMatch} lowerIsBetter />
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-2xl bg-white/8 p-3 ring-1 ring-white/10">
+              <p className="text-2xl font-black text-white">{formatPercent(winRate)}</p>
+              <p className="text-[10px] font-black uppercase text-slate-500">Win rate</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Latest XI</p>
-              <div className="mt-3 grid gap-2">
-                {latestXi.slice(0, 11).map((player) => (
-                  <div key={`${player.name}-${player.number ?? ''}`} className="flex items-center justify-between gap-3 rounded-xl bg-slate-950/45 px-3 py-2">
-                    <span className="truncate text-sm font-black text-white">{player.name}</span>
-                    <span className="shrink-0 text-xs font-black text-slate-400">{player.position ?? player.number ?? '—'}</span>
-                  </div>
-                ))}
-                {latestXi.length === 0 && <p className="rounded-xl bg-slate-950/45 px-3 py-4 text-sm font-bold text-slate-400">Latest XI will appear when ESPN lineup data is available.</p>}
-              </div>
+            <div className="rounded-2xl bg-white/8 p-3 ring-1 ring-white/10">
+              <p className="text-2xl font-black text-white">{cleanSheets}</p>
+              <p className="text-[10px] font-black uppercase text-slate-500">Clean sheets</p>
+            </div>
+            <div className="rounded-2xl bg-white/8 p-3 ring-1 ring-white/10">
+              <p className="text-2xl font-black text-white">{failedToScore}</p>
+              <p className="text-[10px] font-black uppercase text-slate-500">Blanked</p>
             </div>
           </div>
         </div>

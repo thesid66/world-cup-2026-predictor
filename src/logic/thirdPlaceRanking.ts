@@ -66,8 +66,8 @@ function getInitialGroupPoints(args: {
   scores: Record<string, PredictionScore>
 }) {
   const { group, teams, fixtures, scores } = args
-  const pointsByTeam = new Map(
-    teams.filter((team) => team.group === group).map((team) => [team.id, 0])
+  const pointsByTeam = new Map<string, number>(
+    teams.filter((team) => team.group === group).map((team) => [team.id, 0] as const)
   )
 
   getGroupFixtures(group, fixtures).forEach((fixture) => {

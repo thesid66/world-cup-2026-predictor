@@ -110,7 +110,7 @@ function normalizeStatText(value: string | undefined) {
   return String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
-function parseStatNumber(value: RealMatchStatistic['value']): number | null {
+function parseStatNumber(value: string | number | null | undefined): number | null {
   const match = String(value ?? '')
     .replace(/,/g, '')
     .match(/-?\d+(?:\.\d+)?/)

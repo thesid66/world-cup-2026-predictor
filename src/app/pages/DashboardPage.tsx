@@ -92,39 +92,57 @@ export function DashboardPage() {
   const { teams, groups, fixtures } = useTournamentData()
 
   const completedMatches = fixtures.filter((fixture) => isFixtureScoreCompleted(fixture.id, scores)).length
-  const groupStageFixtures = fixtures.filter((fixture) => fixture.stage === 'group')
+  const groupStageFixtures = useMemo(
+    () => fixtures.filter((fixture) => fixture.stage === 'group'),
+    [fixtures]
+  )
   const nextFixture = useMemo(() => getNextFixture(groupStageFixtures), [groupStageFixtures])
 
-  const loadedLiveFixture = groupStageFixtures.find((fixture) => isLiveRealMatch(realMatches[fixture.id]))
-  const likelyLiveFixture = groupStageFixtures.find((fixture) => isLikelyLiveFixture(fixture, realMatches[fixture.id]))
-  const liveFixture = loadedLiveFixture ?? likelyLiveFixture
+  const liveFixtures = useMemo(
+    () =>
+      groupStageFixtures.filter(
+        (fixture) =>
+          isLiveRealMatch(realMatches[fixture.id]) ||
+          isLikelyLiveFixture(fixture, realMatches[fixture.id])
+      ),
+    [groupStageFixtures, realMatches]
+  )
 
   useEffect(() => {
-    if (!liveFixture) {
+    if (liveFixtures.length === 0) {
       return undefined
     }
 
-    const intervalId = window.setInterval(() => {
+    function fetchLiveMatches() {
       const latestState = useRealMatchStore.getState()
-      const latestRealMatch = latestState.matches[liveFixture.id]
 
-      if (latestState.loading[liveFixture.id]) {
-        return
-      }
+      liveFixtures.forEach((fixture) => {
+        const latestRealMatch = latestState.matches[fixture.id]
 
-      if (latestRealMatch && !isLiveRealMatch(latestRealMatch)) {
-        return
-      }
+        if (latestState.loading[fixture.id]) {
+          return
+        }
 
-      void latestState.fetchMatchData(liveFixture, true, { silent: true })
-    }, 1000)
+        if (
+          latestRealMatch &&
+          !isLiveRealMatch(latestRealMatch) &&
+          !isLikelyLiveFixture(fixture, latestRealMatch)
+        ) {
+          return
+        }
+
+        void latestState.fetchMatchData(fixture, true, { silent: true })
+      })
+    }
+
+    fetchLiveMatches()
+
+    const intervalId = window.setInterval(fetchLiveMatches, 1000)
 
     return () => window.clearInterval(intervalId)
-  }, [liveFixture])
+  }, [liveFixtures])
 
-  const featuredFixture = liveFixture ?? nextFixture
-  const featuredHomeTeam = teams.find((team) => team.id === featuredFixture?.homeTeamId)
-  const featuredAwayTeam = teams.find((team) => team.id === featuredFixture?.awayTeamId)
+  const featuredFixtures = liveFixtures.length > 0 ? liveFixtures : nextFixture ? [nextFixture] : []
 
   return (
     <div className="grid gap-5 sm:gap-6">
@@ -157,27 +175,44 @@ export function DashboardPage() {
       <section className="rounded-[1.6rem] border border-white/10 bg-white/8 p-4 shadow-2xl backdrop-blur-xl sm:rounded-4xl sm:p-5">
         <div className="mb-5">
           <p className="text-xs font-black uppercase tracking-[0.24em] text-emerald-300 sm:text-sm sm:tracking-[0.3em]">
-            {liveFixture ? 'Live now' : 'Next match'}
+            {liveFixtures.length > 0 ? 'Live now' : 'Next match'}
           </p>
           <h2 className="mt-2 text-3xl font-black leading-tight text-white">
-            {liveFixture ? 'Live match centre' : 'Upcoming fixture'}
+            {liveFixtures.length > 1
+              ? 'Live matches centre'
+              : liveFixtures.length === 1
+                ? 'Live match centre'
+                : 'Upcoming fixture'}
           </h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-            {liveFixture
-              ? 'An ESPN match is currently in progress. Open the card for live score, timeline and match details.'
-              : 'No unfinished live ESPN match is currently loaded. The next scheduled fixture is shown below with a live kickoff countdown.'}
+            {liveFixtures.length > 1
+              ? 'Multiple ESPN matches are currently in progress. Open each card for live score, timeline and match details.'
+              : liveFixtures.length === 1
+                ? 'An ESPN match is currently in progress. Open the card for live score, timeline and match details.'
+                : 'No unfinished live ESPN match is currently loaded. The next scheduled fixture is shown below with a live kickoff countdown.'}
           </p>
         </div>
 
-        {featuredFixture ? (
-          <MatchScoreCard
-            fixture={featuredFixture}
-            homeTeam={featuredHomeTeam}
-            awayTeam={featuredAwayTeam}
-            highlighted={Boolean(liveFixture)}
-            showCountdown
-            hideLoadRealDataButton
-          />
+        {featuredFixtures.length > 0 ? (
+          <div className={featuredFixtures.length > 1 ? 'grid gap-3 lg:grid-cols-2' : 'grid gap-3'}>
+            {featuredFixtures.map((fixture) => {
+              const homeTeam = teams.find((team) => team.id === fixture.homeTeamId)
+              const awayTeam = teams.find((team) => team.id === fixture.awayTeamId)
+              const isLiveFixture = liveFixtures.some((liveFixture) => liveFixture.id === fixture.id)
+
+              return (
+                <MatchScoreCard
+                  key={fixture.id}
+                  fixture={fixture}
+                  homeTeam={homeTeam}
+                  awayTeam={awayTeam}
+                  highlighted={isLiveFixture}
+                  showCountdown
+                  hideLoadRealDataButton
+                />
+              )
+            })}
+          </div>
         ) : (
           <div className="rounded-2xl border border-white/10 bg-slate-950/40 p-5 text-sm font-bold text-slate-300">
             No fixture is available to feature yet.

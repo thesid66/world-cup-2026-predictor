@@ -99,20 +99,6 @@ article[role='button'].scroll-mt-24 > div:nth-of-type(4) > span {
   text-align: center !important;
 }
 
-section.relative.min-w-0.overflow-hidden.rounded-\[1\.8rem\].border.border-white\/10.bg-slate-950\/70 div.mt-4.flex.flex-wrap.gap-2 > span:nth-child(3) {
-  display: none !important;
-}
-
-section.grid.min-w-0.grid-cols-2.gap-3.sm\:gap-5.lg\:grid-cols-6 > article:nth-child(6) {
-  display: none !important;
-}
-
-@media (min-width: 1024px) {
-  section.grid.min-w-0.grid-cols-2.gap-3.sm\:gap-5.lg\:grid-cols-6 {
-    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-  }
-}
-
 @media (max-width: 767px) {
   article[role='button'].scroll-mt-24 > div:nth-of-type(2) {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;

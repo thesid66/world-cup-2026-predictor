@@ -298,57 +298,10 @@ function sortEventsByMinute(events: RealMatchEvent[]) {
   })
 }
 
-function getGoalScorerSummaryKey(event: RealMatchEvent) {
-  return [event.teamName, event.playerName]
-    .map((value) => String(value ?? '').toLowerCase().replace(/[^a-z0-9]/g, ''))
-    .join('|')
-}
-
-function groupRepeatedGoalScorersForSummary(events: RealMatchEvent[]) {
-  const groupedTimes = new Map<string, string[]>()
-  const firstEventIndexes = new Map<string, number>()
-
-  events.forEach((event, index) => {
-    if (!isGoalEvent(event) || !event.teamName || !event.playerName) return
-
-    const key = getGoalScorerSummaryKey(event)
-    const timeLabel = event.timeLabel ?? (typeof event.elapsed === 'number' ? `${event.elapsed}'` : '')
-
-    if (!groupedTimes.has(key)) {
-      groupedTimes.set(key, [])
-      firstEventIndexes.set(key, index)
-    }
-
-    if (timeLabel && !groupedTimes.get(key)?.includes(timeLabel)) {
-      groupedTimes.get(key)?.push(timeLabel)
-    }
-  })
-
-  return events.map((event, index) => {
-    if (!isGoalEvent(event) || !event.teamName || !event.playerName) return event
-
-    const key = getGoalScorerSummaryKey(event)
-    const firstIndex = firstEventIndexes.get(key)
-    const times = groupedTimes.get(key) ?? []
-
-    if (firstIndex === index) {
-      return {
-        ...event,
-        timeLabel: times.join(', ')
-      }
-    }
-
-    return {
-      ...event,
-      teamName: undefined
-    }
-  })
-}
-
 function cleanRealMatchData(matchData: RealMatchData): RealMatchData {
   const cleanedEvents = matchData.events.map(cleanTimelineEvent)
   const substitutionEvents = deriveSubstitutionEvents(matchData, cleanedEvents)
-  const groupedEvents = groupRepeatedGoalScorersForSummary([...cleanedEvents, ...substitutionEvents])
+  const timelineEvents = [...cleanedEvents, ...substitutionEvents]
   const { homeColor, awayColor } = resolveDistinctTeamColors(matchData)
 
   return {
@@ -361,7 +314,7 @@ function cleanRealMatchData(matchData: RealMatchData): RealMatchData {
       ...matchData.awayTeam,
       color: awayColor
     },
-    events: sortEventsByMinute(groupedEvents)
+    events: sortEventsByMinute(timelineEvents)
   }
 }
 
@@ -430,6 +383,6 @@ export const useRealMatchStore = create<RealMatchState>()(
         set({ matches: {}, loading: {}, errors: {} })
       }
     }),
-    { name: 'world-cup-2026-real-match-cache-v11' }
+    { name: 'world-cup-2026-real-match-cache-v12' }
   )
 )

@@ -2,6 +2,8 @@ import { calculateThirdPlaceRanking } from '../../logic/thirdPlaceRanking'
 import { usePredictionStore } from '../../store/predictionStore'
 import { TeamFlag } from '../ui/TeamFlag'
 
+type QualificationStatus = 'qualified' | 'waiting' | 'eliminated'
+
 type ThirdPlaceMiniStatProps = {
   label: string
   value: number
@@ -14,6 +16,25 @@ function ThirdPlaceMiniStat({ label, value }: ThirdPlaceMiniStatProps) {
       <p className="mt-1 text-sm font-black text-white">{value}</p>
     </div>
   )
+}
+
+function getQualificationLabel(status: QualificationStatus) {
+  if (status === 'qualified') return 'Round of 32'
+  if (status === 'eliminated') return 'Eliminated'
+
+  return 'Waiting'
+}
+
+function getQualificationClassName(status: QualificationStatus) {
+  if (status === 'qualified') {
+    return 'bg-emerald-300/15 text-emerald-200 ring-1 ring-emerald-300/30'
+  }
+
+  if (status === 'eliminated') {
+    return 'bg-red-300/10 text-red-200 ring-1 ring-red-300/20'
+  }
+
+  return 'bg-yellow-300/10 text-yellow-200 ring-1 ring-yellow-300/20'
 }
 
 export function ThirdPlaceRanking() {
@@ -37,8 +58,9 @@ export function ThirdPlaceRanking() {
           </h2>
 
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-            The top 8 third-placed teams qualify for the Round of 32. Ranking is currently based on
-            points, goal difference, then goals scored.
+            The top 8 third-placed teams qualify for the Round of 32. Completed groups are now
+            mathematically locked when no more than seven other third-place teams can finish above
+            them.
           </p>
         </div>
 
@@ -62,6 +84,9 @@ export function ThirdPlaceRanking() {
       <div className="grid gap-3 sm:hidden">
         {rows.map((row, index) => {
           const isQualified = row.qualificationStatus === 'qualified'
+          const isEliminated = row.qualificationStatus === 'eliminated'
+          const qualificationLabel = getQualificationLabel(row.qualificationStatus)
+          const qualificationClassName = getQualificationClassName(row.qualificationStatus)
 
           return (
             <article
@@ -69,7 +94,9 @@ export function ThirdPlaceRanking() {
               className={`rounded-2xl border p-3 ${
                 isQualified
                   ? 'border-emerald-300/20 bg-emerald-300/10'
-                  : 'border-white/10 bg-slate-950/45'
+                  : isEliminated
+                    ? 'border-red-300/20 bg-red-300/10'
+                    : 'border-white/10 bg-slate-950/45'
               }`}
             >
               <div className="flex items-center justify-between gap-3">
@@ -115,13 +142,9 @@ export function ThirdPlaceRanking() {
               </div>
 
               <p
-                className={`mt-3 rounded-full px-3 py-2 text-center text-xs font-black ${
-                  isQualified
-                    ? 'bg-emerald-300/15 text-emerald-200 ring-1 ring-emerald-300/30'
-                    : 'bg-red-300/10 text-red-200 ring-1 ring-red-300/20'
-                }`}
+                className={`mt-3 rounded-full px-3 py-2 text-center text-xs font-black ${qualificationClassName}`}
               >
-                {isQualified ? 'Round of 32' : 'Eliminated'}
+                {qualificationLabel}
               </p>
             </article>
           )
@@ -150,6 +173,8 @@ export function ThirdPlaceRanking() {
           <tbody>
             {rows.map((row, index) => {
               const isQualified = row.qualificationStatus === 'qualified'
+              const qualificationLabel = getQualificationLabel(row.qualificationStatus)
+              const qualificationClassName = getQualificationClassName(row.qualificationStatus)
 
               return (
                 <tr
@@ -211,13 +236,9 @@ export function ThirdPlaceRanking() {
 
                   <td className="px-3 py-3 text-right">
                     <span
-                      className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${
-                        isQualified
-                          ? 'bg-emerald-300/15 text-emerald-200 ring-1 ring-emerald-300/30'
-                          : 'bg-red-300/10 text-red-200 ring-1 ring-red-300/20'
-                      }`}
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${qualificationClassName}`}
                     >
-                      {isQualified ? 'Round of 32' : 'Eliminated'}
+                      {qualificationLabel}
                     </span>
                   </td>
                 </tr>
@@ -228,8 +249,9 @@ export function ThirdPlaceRanking() {
       </div>
 
       <p className="mt-4 text-xs font-bold leading-5 text-slate-500">
-        Note: until every group is completed, this table is provisional. Fair play and FIFA ranking
-        tie-breakers are not included yet because the app currently only collects match scores.
+        Note: fair play and FIFA ranking tie-breakers are not included yet because the app currently
+        only collects match scores. Equal known points, goal difference and goals scored are treated
+        conservatively until the group stage is complete.
       </p>
     </section>
   )

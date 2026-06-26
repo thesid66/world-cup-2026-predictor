@@ -329,8 +329,7 @@ function SummaryCard({ label, value, detail, icon: Icon, tone = 'yellow' }: Summ
 }
 
 function BenchmarkRow({ label, countryValue, groupValue, suffix = '', lowerIsBetter = false }: BenchmarkRowProps) {
-  const hasDelta = countryValue !== null && groupValue !== null
-  const delta = hasDelta ? countryValue - groupValue : null
+  const delta = countryValue === null || groupValue === null ? null : countryValue - groupValue
   const isPositive = delta !== null && (lowerIsBetter ? delta < 0 : delta > 0)
   const deltaLabel = delta === null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}${suffix}`
 

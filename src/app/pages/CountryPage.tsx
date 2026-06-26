@@ -19,7 +19,7 @@ import { calculateGroupTable } from '../../logic/groupTable'
 import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
-import type { RealMatchData, RealMatchEvent, RealMatchStatistic } from '../../types/realMatch'
+import type { RealMatchData, RealMatchEvent, RealMatchLineupPlayer, RealMatchStatistic } from '../../types/realMatch'
 import type { Fixture, GroupTableRow, PredictionScore, Team } from '../../types/tournament'
 
 const STAT_TYPES = {
@@ -34,6 +34,11 @@ const STAT_TYPES = {
 } as const
 
 type StatType = (typeof STAT_TYPES)[keyof typeof STAT_TYPES]
+
+type ScoredPredictionScore = PredictionScore & {
+  homeScore: number
+  awayScore: number
+}
 
 type CountryMatchRow = {
   fixture: Fixture
@@ -131,8 +136,8 @@ function isRedCardEvent(event: RealMatchEvent) {
   return `${event.type ?? ''} ${event.detail ?? ''}`.toLowerCase().includes('red')
 }
 
-function isScored(score?: PredictionScore) {
-  return typeof score?.homeScore === 'number' && typeof score.awayScore === 'number'
+function isScored(score?: PredictionScore): score is ScoredPredictionScore {
+  return Boolean(score && typeof score.homeScore === 'number' && typeof score.awayScore === 'number')
 }
 
 function getResult(countryScore: number | null, opponentScore: number | null): CountryMatchRow['result'] {
@@ -166,6 +171,14 @@ function getOpponentStatsForMatch(match: RealMatchData | undefined, isHome: bool
   if (!match?.statistics.length) return []
 
   return match.statistics[isHome ? 1 : 0]?.statistics ?? []
+}
+
+function getCountryLineupPlayers(row: CountryMatchRow): RealMatchLineupPlayer[] {
+  const lineups = row.realMatch?.lineups
+
+  if (!lineups) return []
+
+  return row.isHome ? lineups.homeXi : lineups.awayXi
 }
 
 function eventBelongsToCountry(event: RealMatchEvent, match: RealMatchData | undefined, isHome: boolean) {
@@ -395,12 +408,8 @@ export function CountryPage() {
   const disciplineRating = clampRating(100 - yellowCards * 8 - redCards * 20 - (foulsAverage ?? 0) * 2)
   const playerImpact = buildPlayerImpact(rows)
   const formationUsage = getFormationUsage(rows)
-  const latestLineupRow = [...rows]
-    .reverse()
-    .find((row) => row.realMatch?.lineups && ((row.isHome ? row.realMatch.lineups.homeXi : row.realMatch.lineups.awayXi).length > 0))
-  const latestXi = latestLineupRow?.isHome
-    ? latestLineupRow.realMatch?.lineups?.homeXi
-    : latestLineupRow?.realMatch?.lineups?.awayXi
+  const latestLineupRow = [...rows].reverse().find((row) => getCountryLineupPlayers(row).length > 0)
+  const latestXi = latestLineupRow ? getCountryLineupPlayers(latestLineupRow) : []
   const espnLoadedCount = rows.filter((row) => row.realMatch).length
   const qualificationLabel = getQualificationLabel(tableRow, groupPosition || null)
 
@@ -714,14 +723,14 @@ export function CountryPage() {
             <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Latest XI</p>
               <div className="mt-3 grid gap-2">
-                {latestXi?.slice(0, 11).map((player) => (
+                {latestXi.slice(0, 11).map((player) => (
                   <div key={`${player.name}-${player.number ?? ''}`} className="flex items-center justify-between gap-3 rounded-xl bg-slate-950/45 px-3 py-2">
                     <span className="truncate text-sm font-black text-white">{player.name}</span>
                     <span className="shrink-0 text-xs font-black text-slate-400">{player.position ?? player.number ?? '—'}</span>
                   </div>
                 ))}
 
-                {!latestXi?.length && (
+                {latestXi.length === 0 && (
                   <p className="rounded-xl bg-slate-950/45 px-3 py-4 text-sm font-bold text-slate-400">
                     Latest XI will appear when ESPN lineup data is available.
                   </p>

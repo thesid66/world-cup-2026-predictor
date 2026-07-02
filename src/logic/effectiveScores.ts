@@ -7,6 +7,14 @@ function hasUsableRealScore(matchData?: RealMatchData) {
   return typeof matchData.score.home === 'number' && typeof matchData.score.away === 'number'
 }
 
+function getRealWinnerTeamId(matchData: RealMatchData) {
+  if (matchData.score.home !== matchData.score.away) {
+    return undefined
+  }
+
+  return matchData.winnerTeamId
+}
+
 export function getScoresWithRealMatchData(
   scores: Record<string, PredictionScore>,
   realMatches: Record<string, RealMatchData>
@@ -28,10 +36,12 @@ export function getScoresWithRealMatchData(
         return mergedScores
       }
 
+      const winnerTeamId = getRealWinnerTeamId(matchData)
+
       mergedScores[fixtureId] = {
-        ...mergedScores[fixtureId],
         homeScore,
-        awayScore
+        awayScore,
+        ...(winnerTeamId ? { winnerTeamId } : {})
       }
 
       return mergedScores

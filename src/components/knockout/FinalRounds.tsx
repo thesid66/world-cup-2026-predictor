@@ -25,7 +25,7 @@ export function FinalRounds() {
       <KnockoutRoundSection
         eyebrow="Knockout stage"
         title="Quarter-finals"
-        description="Round of 16 winners flow into the quarter-finals automatically."
+        description="Round of 16 winners flow into the quarter-finals automatically. ESPN actual results sync when available."
         matches={quarterFinals}
         totalMatches={4}
         accent="sky"
@@ -43,7 +43,7 @@ export function FinalRounds() {
       <KnockoutRoundSection
         eyebrow="Bronze final"
         title="Third-place match"
-        description="The two semi-final losers meet here."
+        description="The two semi-final losers meet here. ESPN actual results sync when available."
         matches={thirdPlace}
         totalMatches={1}
         accent="rose"
@@ -52,7 +52,7 @@ export function FinalRounds() {
       <KnockoutRoundSection
         eyebrow="World Cup final"
         title="Final"
-        description="The two semi-final winners meet here. Complete this match to reveal your predicted champion."
+        description="The two semi-final winners meet here. ESPN actual results and penalty winners can reveal the champion automatically."
         matches={final}
         totalMatches={1}
         accent="yellow"

@@ -1,9 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Fixture, QualifiedTeamRow, ResolvedKnockoutMatch, Team } from '../../types/tournament'
+import type { PredictionScore, QualifiedTeamRow, ResolvedKnockoutMatch } from '../../types/tournament'
 import { getKnockoutMatchWinner } from '../../logic/knockoutWinner'
+import {
+  getKnockoutFixture,
+  getTeamFromQualifiedRow,
+  knockoutStageLabels
+} from '../../logic/knockoutFixtures'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
-import { getFixtureKickoffDate } from '../../utils/fixtureTime'
+import { formatLocalFixtureDateTime, getFixtureKickoffDate } from '../../utils/fixtureTime'
 import { RealMatchModal } from '../matches/RealMatchModal'
 import { TeamFlag } from '../ui/TeamFlag'
 
@@ -11,250 +16,9 @@ type KnockoutMatchCardProps = {
   match: ResolvedKnockoutMatch
 }
 
-type KnockoutFixtureMetadata = Pick<
-  Fixture,
-  'date' | 'kickoffTime' | 'kickoffTimeSort' | 'venue' | 'city'
->
-
 type UsableActualScore = {
   home: number
   away: number
-}
-
-const stageLabels: Record<ResolvedKnockoutMatch['stage'], string> = {
-  round32: 'Round of 32',
-  round16: 'Round of 16',
-  quarterFinal: 'Quarter-final',
-  semiFinal: 'Semi-final',
-  thirdPlace: 'Third-place match',
-  final: 'Final'
-}
-
-const knockoutFixtureMetadataByMatchNumber: Record<number, KnockoutFixtureMetadata> = {
-  73: {
-    date: '2026-06-28',
-    kickoffTime: '3:00 PM ET',
-    kickoffTimeSort: '15:00',
-    venue: 'SoFi Stadium',
-    city: 'Inglewood'
-  },
-  74: {
-    date: '2026-06-29',
-    kickoffTime: '4:30 PM ET',
-    kickoffTimeSort: '16:30',
-    venue: 'Gillette Stadium',
-    city: 'Foxborough'
-  },
-  75: {
-    date: '2026-06-29',
-    kickoffTime: '9:00 PM ET',
-    kickoffTimeSort: '21:00',
-    venue: 'Estadio BBVA',
-    city: 'Guadalupe'
-  },
-  76: {
-    date: '2026-06-29',
-    kickoffTime: '1:00 PM ET',
-    kickoffTimeSort: '13:00',
-    venue: 'NRG Stadium',
-    city: 'Houston'
-  },
-  77: {
-    date: '2026-06-30',
-    kickoffTime: '5:00 PM ET',
-    kickoffTimeSort: '17:00',
-    venue: 'MetLife Stadium',
-    city: 'East Rutherford'
-  },
-  78: {
-    date: '2026-06-30',
-    kickoffTime: '1:00 PM ET',
-    kickoffTimeSort: '13:00',
-    venue: 'AT&T Stadium',
-    city: 'Arlington'
-  },
-  79: {
-    date: '2026-06-30',
-    kickoffTime: '9:00 PM ET',
-    kickoffTimeSort: '21:00',
-    venue: 'Estadio Azteca',
-    city: 'Mexico City'
-  },
-  80: {
-    date: '2026-07-01',
-    kickoffTime: '12:00 PM ET',
-    kickoffTimeSort: '12:00',
-    venue: 'Mercedes-Benz Stadium',
-    city: 'Atlanta'
-  },
-  81: {
-    date: '2026-07-01',
-    kickoffTime: '8:00 PM ET',
-    kickoffTimeSort: '20:00',
-    venue: "Levi's Stadium",
-    city: 'Santa Clara'
-  },
-  82: {
-    date: '2026-07-01',
-    kickoffTime: '4:00 PM ET',
-    kickoffTimeSort: '16:00',
-    venue: 'Lumen Field',
-    city: 'Seattle'
-  },
-  83: {
-    date: '2026-07-02',
-    kickoffTime: '7:00 PM ET',
-    kickoffTimeSort: '19:00',
-    venue: 'BMO Field',
-    city: 'Toronto'
-  },
-  84: {
-    date: '2026-07-02',
-    kickoffTime: '3:00 PM ET',
-    kickoffTimeSort: '15:00',
-    venue: 'SoFi Stadium',
-    city: 'Inglewood'
-  },
-  85: {
-    date: '2026-07-02',
-    kickoffTime: '11:00 PM ET',
-    kickoffTimeSort: '23:00',
-    venue: 'BC Place',
-    city: 'Vancouver'
-  },
-  86: {
-    date: '2026-07-03',
-    kickoffTime: '6:00 PM ET',
-    kickoffTimeSort: '18:00',
-    venue: 'Hard Rock Stadium',
-    city: 'Miami Gardens'
-  },
-  87: {
-    date: '2026-07-03',
-    kickoffTime: '9:30 PM ET',
-    kickoffTimeSort: '21:30',
-    venue: 'Arrowhead Stadium',
-    city: 'Kansas City'
-  },
-  88: {
-    date: '2026-07-03',
-    kickoffTime: '2:00 PM ET',
-    kickoffTimeSort: '14:00',
-    venue: 'AT&T Stadium',
-    city: 'Arlington'
-  },
-  89: {
-    date: '2026-07-04',
-    kickoffTime: '5:00 PM ET',
-    kickoffTimeSort: '17:00',
-    venue: 'Lincoln Financial Field',
-    city: 'Philadelphia'
-  },
-  90: {
-    date: '2026-07-04',
-    kickoffTime: '1:00 PM ET',
-    kickoffTimeSort: '13:00',
-    venue: 'NRG Stadium',
-    city: 'Houston'
-  },
-  91: {
-    date: '2026-07-05',
-    kickoffTime: '4:00 PM ET',
-    kickoffTimeSort: '16:00',
-    venue: 'MetLife Stadium',
-    city: 'East Rutherford'
-  },
-  92: {
-    date: '2026-07-05',
-    kickoffTime: '8:00 PM ET',
-    kickoffTimeSort: '20:00',
-    venue: 'Estadio Azteca',
-    city: 'Mexico City'
-  },
-  93: {
-    date: '2026-07-06',
-    kickoffTime: '3:00 PM ET',
-    kickoffTimeSort: '15:00',
-    venue: 'AT&T Stadium',
-    city: 'Arlington'
-  },
-  94: {
-    date: '2026-07-06',
-    kickoffTime: '8:00 PM ET',
-    kickoffTimeSort: '20:00',
-    venue: 'Lumen Field',
-    city: 'Seattle'
-  },
-  95: {
-    date: '2026-07-07',
-    kickoffTime: '12:00 PM ET',
-    kickoffTimeSort: '12:00',
-    venue: 'Mercedes-Benz Stadium',
-    city: 'Atlanta'
-  },
-  96: {
-    date: '2026-07-07',
-    kickoffTime: '4:00 PM ET',
-    kickoffTimeSort: '16:00',
-    venue: 'BC Place',
-    city: 'Vancouver'
-  },
-  97: {
-    date: '2026-07-09',
-    kickoffTime: '4:00 PM ET',
-    kickoffTimeSort: '16:00',
-    venue: 'Gillette Stadium',
-    city: 'Foxborough'
-  },
-  98: {
-    date: '2026-07-10',
-    kickoffTime: '3:00 PM ET',
-    kickoffTimeSort: '15:00',
-    venue: 'SoFi Stadium',
-    city: 'Inglewood'
-  },
-  99: {
-    date: '2026-07-11',
-    kickoffTime: '5:00 PM ET',
-    kickoffTimeSort: '17:00',
-    venue: 'Hard Rock Stadium',
-    city: 'Miami Gardens'
-  },
-  100: {
-    date: '2026-07-11',
-    kickoffTime: '9:00 PM ET',
-    kickoffTimeSort: '21:00',
-    venue: 'Arrowhead Stadium',
-    city: 'Kansas City'
-  },
-  101: {
-    date: '2026-07-14',
-    kickoffTime: '3:00 PM ET',
-    kickoffTimeSort: '15:00',
-    venue: 'AT&T Stadium',
-    city: 'Arlington'
-  },
-  102: {
-    date: '2026-07-15',
-    kickoffTime: '3:00 PM ET',
-    kickoffTimeSort: '15:00',
-    venue: 'Mercedes-Benz Stadium',
-    city: 'Atlanta'
-  },
-  103: {
-    date: '2026-07-18',
-    kickoffTime: '5:00 PM ET',
-    kickoffTimeSort: '17:00',
-    venue: 'Hard Rock Stadium',
-    city: 'Miami Gardens'
-  },
-  104: {
-    date: '2026-07-19',
-    kickoffTime: '3:00 PM ET',
-    kickoffTimeSort: '15:00',
-    venue: 'MetLife Stadium',
-    city: 'East Rutherford'
-  }
 }
 
 function parseScoreValue(value: string): number | null {
@@ -276,40 +40,20 @@ function hasUsableActualScore(score?: {
   return typeof score?.home === 'number' && typeof score.away === 'number'
 }
 
-function getKnockoutFixture(match: ResolvedKnockoutMatch): Fixture | null {
-  const metadata = knockoutFixtureMetadataByMatchNumber[match.matchNumber]
-
-  if (!metadata || !match.homeTeam || !match.awayTeam) {
-    return null
-  }
-
-  return {
-    id: match.id,
-    matchNumber: match.matchNumber,
-    stage: 'group',
-    ...metadata,
-    homeTeamId: match.homeTeam.teamId,
-    awayTeamId: match.awayTeam.teamId
-  }
-}
-
-function getModalTeam(team?: QualifiedTeamRow): Team | undefined {
-  if (!team) return undefined
-
-  return {
-    id: team.teamId,
-    name: team.teamName,
-    shortName: team.shortName,
-    flagCode: team.flagCode,
-    confederation: 'UEFA',
-    group: team.group
-  }
-}
-
 function getTeamSeedDescription(team: QualifiedTeamRow) {
   const status = team.isGroupComplete ? 'Qualified' : 'Qualified · provisional slot'
 
   return `${team.seedLabel} · ${team.shortName} · ${status}`
+}
+
+function getEffectiveScore(score: PredictionScore | undefined, realScore?: UsableActualScore, winnerTeamId?: string): PredictionScore | undefined {
+  if (!realScore) return score
+
+  return {
+    homeScore: realScore.home,
+    awayScore: realScore.away,
+    ...(winnerTeamId ? { winnerTeamId } : {})
+  }
 }
 
 function QualifiedPill({ provisional }: { provisional: boolean }) {
@@ -371,20 +115,19 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
   const fetchMatchData = useRealMatchStore((state) => state.fetchMatchData)
 
   const hasBothTeams = Boolean(match.homeTeam && match.awayTeam)
-  const hasAnyScore = typeof score?.homeScore === 'number' || typeof score?.awayScore === 'number'
-  const hasBothScores = typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
-  const isDraw = hasBothScores && score?.homeScore === score?.awayScore && hasBothTeams
-
-  const knockoutFixture = useMemo(
-    () => getKnockoutFixture(match),
-    [match.id, match.matchNumber, match.homeTeam?.teamId, match.awayTeam?.teamId]
-  )
-  const modalHomeTeam = useMemo(() => getModalTeam(match.homeTeam), [match.homeTeam])
-  const modalAwayTeam = useMemo(() => getModalTeam(match.awayTeam), [match.awayTeam])
+  const knockoutFixture = useMemo(() => getKnockoutFixture(match), [match])
+  const realMatch = useRealMatchStore((state) => (knockoutFixture ? state.matches[knockoutFixture.id] : undefined))
+  const realScore = hasUsableActualScore(realMatch?.score) ? realMatch.score : undefined
+  const effectiveScore = getEffectiveScore(score, realScore, realMatch?.winnerTeamId)
+  const hasBothScores = typeof effectiveScore?.homeScore === 'number' && typeof effectiveScore?.awayScore === 'number'
+  const isDraw = hasBothScores && effectiveScore?.homeScore === effectiveScore?.awayScore && hasBothTeams
+  const needsManualTiebreaker = isDraw && !effectiveScore?.winnerTeamId
+  const modalHomeTeam = useMemo(() => getTeamFromQualifiedRow(match.homeTeam), [match.homeTeam])
+  const modalAwayTeam = useMemo(() => getTeamFromQualifiedRow(match.awayTeam), [match.awayTeam])
 
   const winner = getKnockoutMatchWinner({
     match,
-    score
+    score: effectiveScore
   })
 
   function openModal() {
@@ -393,7 +136,7 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
   }
 
   useEffect(() => {
-    if (!knockoutFixture || hasAnyScore) return
+    if (!knockoutFixture) return
 
     const fixture = knockoutFixture
     const kickoffDate = getFixtureKickoffDate(fixture)
@@ -406,19 +149,6 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
       await fetchMatchData(fixture, false, { silent: true })
 
       if (cancelled) return
-
-      const latestScore = useRealMatchStore.getState().matches[fixture.id]?.score
-
-      if (!hasUsableActualScore(latestScore)) return
-
-      const currentScore = usePredictionStore.getState().scores[match.id]
-      const hasCurrentScore =
-        typeof currentScore?.homeScore === 'number' || typeof currentScore?.awayScore === 'number'
-
-      if (hasCurrentScore) return
-
-      updateScore(match.id, 'homeScore', latestScore.home)
-      updateScore(match.id, 'awayScore', latestScore.away)
     }
 
     void loadRealScore()
@@ -426,7 +156,31 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
     return () => {
       cancelled = true
     }
-  }, [fetchMatchData, hasAnyScore, knockoutFixture, match.id, updateScore])
+  }, [fetchMatchData, knockoutFixture])
+
+  useEffect(() => {
+    if (!knockoutFixture || !realScore) return
+
+    const currentScore = usePredictionStore.getState().scores[match.id]
+    const shouldUpdateHome = currentScore?.homeScore !== realScore.home
+    const shouldUpdateAway = currentScore?.awayScore !== realScore.away
+
+    if (shouldUpdateHome) {
+      updateScore(match.id, 'homeScore', realScore.home)
+    }
+
+    if (shouldUpdateAway) {
+      updateScore(match.id, 'awayScore', realScore.away)
+    }
+
+    if (
+      realScore.home === realScore.away &&
+      realMatch?.winnerTeamId &&
+      currentScore?.winnerTeamId !== realMatch.winnerTeamId
+    ) {
+      setWinnerTeam(match.id, realMatch.winnerTeamId)
+    }
+  }, [knockoutFixture, match.id, realMatch?.winnerTeamId, realScore, setWinnerTeam, updateScore])
 
   return (
     <>
@@ -464,9 +218,15 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
               Match {match.matchNumber}
             </span>
 
-            <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-400">
-              {stageLabels[match.stage]}
+            <span className="rounded-full bg-white/8 px-3 py-1 text-xs font-black text-slate-300">
+              {knockoutStageLabels[match.stage]}
             </span>
+
+            {realMatch && (
+              <span className="rounded-full border border-sky-300/25 bg-sky-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-sky-100">
+                ESPN loaded
+              </span>
+            )}
           </div>
 
           {winner && (
@@ -475,6 +235,15 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
             </span>
           )}
         </div>
+
+        {knockoutFixture && (
+          <div className="mb-4 grid gap-2 rounded-2xl border border-white/10 bg-white/6 p-3 text-xs font-black text-slate-300 sm:grid-cols-[1fr_auto] sm:items-center">
+            <p className="uppercase tracking-[0.16em] text-yellow-100">{formatLocalFixtureDateTime(knockoutFixture)}</p>
+            <p className="text-slate-400 sm:text-right">
+              {knockoutFixture.venue}, {knockoutFixture.city}
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
           <TeamSide team={match.homeTeam} fallbackLabel={match.homeLabel} />
@@ -489,7 +258,7 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
                 min={0}
                 inputMode="numeric"
                 disabled={!hasBothTeams}
-                value={score?.homeScore ?? ''}
+                value={effectiveScore?.homeScore ?? ''}
                 onChange={(event) =>
                   updateScore(match.id, 'homeScore', parseScoreValue(event.target.value))
                 }
@@ -503,13 +272,25 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
                 min={0}
                 inputMode="numeric"
                 disabled={!hasBothTeams}
-                value={score?.awayScore ?? ''}
+                value={effectiveScore?.awayScore ?? ''}
                 onChange={(event) =>
                   updateScore(match.id, 'awayScore', parseScoreValue(event.target.value))
                 }
                 className="h-12 w-14 rounded-xl border border-white/10 bg-white/10 text-center text-xl font-black text-white outline-none transition focus:border-yellow-300 focus:bg-yellow-300/10 disabled:cursor-not-allowed disabled:opacity-40"
               />
             </div>
+
+            {realMatch && (
+              <div className="mt-2 rounded-xl border border-sky-300/15 bg-sky-300/10 px-3 py-2 text-center">
+                <p className="text-[9px] font-black uppercase tracking-[0.14em] text-sky-200">ESPN actual</p>
+                <p className="mt-1 text-sm font-black text-white">{realMatch.score.display}</p>
+                {realMatch.penaltyShootout?.display && (
+                  <p className="mt-1 text-[9px] font-black uppercase tracking-[0.12em] text-slate-400">
+                    Penalties {realMatch.penaltyShootout.display}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="col-start-2 row-start-1 sm:col-start-auto sm:row-start-auto">
@@ -517,26 +298,22 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
           </div>
         </div>
 
-        <div className="relative mt-8 border-t border-white/10 pt-8 sm:mt-6 sm:pt-5">
-          <span className="absolute left-2 right-2 top-0 -translate-y-1/2 rounded-full border border-white/10 bg-slate-950 px-3 py-1 text-center text-[8px] font-black uppercase tracking-[0.08em] text-yellow-200 shadow-lg sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 sm:whitespace-nowrap sm:text-[10px] sm:tracking-[0.18em]">
-            Knockout fixture
-          </span>
-
+        <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/35 p-3">
           {!hasBothTeams && (
             <p className="rounded-xl bg-yellow-300/10 px-3 py-3 text-center text-xs font-bold leading-5 text-yellow-100 sm:text-left">
               Complete or mathematically resolve the previous stage to resolve this match.
             </p>
           )}
 
-          {isDraw && match.homeTeam && match.awayTeam && (
-            <div className="rounded-xl border border-yellow-300/20 bg-yellow-300/10 p-3">
+          {needsManualTiebreaker && match.homeTeam && match.awayTeam && (
+            <div>
               <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-yellow-200 sm:tracking-[0.2em]">
                 Draw after score — select advancing team
               </p>
 
               <div className="grid gap-2 sm:grid-cols-2">
                 {[match.homeTeam, match.awayTeam].map((team) => {
-                  const isSelected = score?.winnerTeamId === team.teamId
+                  const isSelected = effectiveScore?.winnerTeamId === team.teamId
 
                   return (
                     <button
@@ -559,6 +336,12 @@ export function KnockoutMatchCard({ match }: KnockoutMatchCardProps) {
                 })}
               </div>
             </div>
+          )}
+
+          {isDraw && effectiveScore?.winnerTeamId && winner && (
+            <p className="rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-3 text-center text-xs font-black uppercase tracking-[0.14em] text-emerald-100">
+              Tie resolved by ESPN: {winner.teamName} advance
+            </p>
           )}
         </div>
       </article>

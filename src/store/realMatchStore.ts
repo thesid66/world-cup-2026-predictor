@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { canFetchEspnWorldCupMatchData, fetchEspnWorldCupMatchDataForFixture } from '../services/espnWorldCup'
+import { canFetchEspnWorldCupMatchData, fetchEspnWorldCupMatchDataForFixture } from '../services/espnWorldCupLive'
 import type { RealMatchCommentary, RealMatchData, RealMatchEvent } from '../types/realMatch'
 import type { Fixture } from '../types/tournament'
 import { getFixtureKickoffDate } from '../utils/fixtureTime'
@@ -383,6 +383,6 @@ export const useRealMatchStore = create<RealMatchState>()(
         set({ matches: {}, loading: {}, errors: {} })
       }
     }),
-    { name: 'world-cup-2026-real-match-cache-v12' }
+    { name: 'world-cup-2026-real-match-cache-v13' }
   )
 )

@@ -39,7 +39,7 @@ export function RoundOf32Bracket() {
 
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
             These matches are generated from your predicted group tables and best third-placed
-            teams. Enter knockout scores manually. If a match is drawn, choose the winner.
+            teams. Once kickoff passes, ESPN actual scores and penalty winners sync automatically.
           </p>
         </div>
 

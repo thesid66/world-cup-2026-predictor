@@ -4,19 +4,19 @@ import { RealMatchModal } from '../../components/matches/RealMatchModal'
 import { TeamFlag } from '../../components/ui/TeamFlag'
 import { useTournamentData } from '../../context/TournamentDataContext'
 import { getScoresWithRealMatchData } from '../../logic/effectiveScores'
+import { getFinalMatch, getQuarterFinalMatches, getSemiFinalMatches, getThirdPlaceMatch } from '../../logic/finalRounds'
 import {
   getKnockoutFixture,
   getTeamFromQualifiedRow,
   knockoutStageLabels
 } from '../../logic/knockoutFixtures'
-import { getFinalMatch, getQuarterFinalMatches, getSemiFinalMatches, getThirdPlaceMatch } from '../../logic/finalRounds'
 import { getRoundOf16Matches } from '../../logic/roundOf16'
 import { getRoundOf32Matches } from '../../logic/roundOf32'
 import { usePredictionStore } from '../../store/predictionStore'
 import { useRealMatchStore } from '../../store/realMatchStore'
 import { formatLocalFixtureDateTime, getFixtureKickoffDate } from '../../utils/fixtureTime'
 import type { RealMatchData } from '../../types/realMatch'
-import type { Fixture, PredictionScore, ResolvedKnockoutMatch, Team } from '../../types/tournament'
+import type { Fixture, Group, PredictionScore, ResolvedKnockoutMatch, Team } from '../../types/tournament'
 
 const MATCH_LIVE_LOOKUP_WINDOW_MS = 3 * 60 * 60 * 1000
 
@@ -28,12 +28,14 @@ type DashboardFixtureEntry = {
   match?: ResolvedKnockoutMatch
 }
 
-function isFixtureScoreCompleted(
-  fixtureId: string,
-  scores: ReturnType<typeof usePredictionStore.getState>['scores']
-) {
-  const score = scores[fixtureId]
+type KnockoutEntryData = {
+  groups: Group[]
+  teams: Team[]
+  fixtures: Fixture[]
+}
 
+function isFixtureScoreCompleted(fixtureId: string, scores: Record<string, PredictionScore>) {
+  const score = scores[fixtureId]
   return typeof score?.homeScore === 'number' && typeof score?.awayScore === 'number'
 }
 
@@ -45,7 +47,6 @@ function getFixtureSlotKey(fixture: Fixture) {
   }
 
   const kickoffDate = getFixtureKickoffDate(fixture)
-
   return kickoffDate ? String(kickoffDate.getTime()) : null
 }
 
@@ -61,21 +62,14 @@ function getDatedFixtureEntries(entries: DashboardFixtureEntry[]) {
 
 function getNextFixtureEntry(entries: DashboardFixtureEntry[]) {
   const now = Date.now()
-  const datedEntries = getDatedFixtureEntries(entries)
-
-  return datedEntries.find((entry) => entry.kickoffDate.getTime() >= now)?.entry ?? null
+  return getDatedFixtureEntries(entries).find((entry) => entry.kickoffDate.getTime() >= now)?.entry ?? null
 }
 
 function getEntriesInSameSlot(entries: DashboardFixtureEntry[], selectedEntry: DashboardFixtureEntry | null) {
-  if (!selectedEntry) {
-    return []
-  }
+  if (!selectedEntry) return []
 
   const selectedSlotKey = getFixtureSlotKey(selectedEntry.fixture)
-
-  if (!selectedSlotKey) {
-    return [selectedEntry]
-  }
+  if (!selectedSlotKey) return [selectedEntry]
 
   const matchingEntries = entries.filter((entry) => getFixtureSlotKey(entry.fixture) === selectedSlotKey)
   const sortedEntries = getDatedFixtureEntries(matchingEntries).map((entry) => entry.entry)
@@ -101,9 +95,7 @@ function isCompletedRealMatch(realMatch?: RealMatchData) {
 }
 
 function isLiveRealMatch(realMatch?: RealMatchData) {
-  if (!realMatch || isCompletedRealMatch(realMatch)) {
-    return false
-  }
+  if (!realMatch || isCompletedRealMatch(realMatch)) return false
 
   const status = getRealMatchStatusText(realMatch)
 
@@ -122,18 +114,12 @@ function isLiveRealMatch(realMatch?: RealMatchData) {
 }
 
 function isLikelyLiveFixture(fixture: Fixture, realMatch?: RealMatchData) {
-  if (realMatch && isCompletedRealMatch(realMatch)) {
-    return false
-  }
+  if (realMatch && isCompletedRealMatch(realMatch)) return false
 
   const kickoffDate = getFixtureKickoffDate(fixture)
-
-  if (!kickoffDate) {
-    return false
-  }
+  if (!kickoffDate) return false
 
   const elapsedSinceKickoff = Date.now() - kickoffDate.getTime()
-
   return elapsedSinceKickoff >= 0 && elapsedSinceKickoff <= MATCH_LIVE_LOOKUP_WINDOW_MS
 }
 
@@ -147,7 +133,6 @@ function formatCountdownTime(milliseconds: number) {
   if (days > 0) return `${days}d ${hours}h ${minutes}m`
   if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
   if (minutes > 0) return `${minutes}m ${seconds}s`
-
   return `${seconds}s`
 }
 
@@ -164,7 +149,6 @@ function getStatusLabel(realMatch?: RealMatchData) {
 
 function getCountdownLabel(fixture: Fixture, now: number, realMatch?: RealMatchData) {
   const kickoffDate = getFixtureKickoffDate(fixture)
-
   if (!kickoffDate) return null
 
   const millisecondsToKickoff = kickoffDate.getTime() - now
@@ -194,7 +178,6 @@ function getGroupStageEntries(fixtures: Fixture[], teams: Team[]): DashboardFixt
 function getResolvedKnockoutEntries(matches: ResolvedKnockoutMatch[]): DashboardFixtureEntry[] {
   return matches.flatMap((match) => {
     const fixture = getKnockoutFixture(match)
-
     if (!fixture) return []
 
     return [
@@ -209,7 +192,7 @@ function getResolvedKnockoutEntries(matches: ResolvedKnockoutMatch[]): Dashboard
   })
 }
 
-function getKnockoutEntries(scores: Record<string, PredictionScore>, data: ReturnType<typeof useTournamentData>) {
+function getKnockoutEntries(scores: Record<string, PredictionScore>, data: KnockoutEntryData) {
   const roundOf32 = getRoundOf32Matches(scores, data)
   const roundOf16 = getRoundOf16Matches(scores)
   const quarterFinals = getQuarterFinalMatches(scores)
@@ -361,27 +344,15 @@ export function DashboardPage() {
   const { teams, groups, fixtures } = useTournamentData()
 
   const completedMatches = fixtures.filter((fixture) => isFixtureScoreCompleted(fixture.id, scores)).length
-  const effectiveScores = useMemo(
-    () => getScoresWithRealMatchData(scores, realMatches),
-    [realMatches, scores]
-  )
-  const groupStageEntries = useMemo(
-    () => getGroupStageEntries(fixtures, teams),
-    [fixtures, teams]
-  )
+  const effectiveScores = useMemo(() => getScoresWithRealMatchData(scores, realMatches), [realMatches, scores])
+  const groupStageEntries = useMemo(() => getGroupStageEntries(fixtures, teams), [fixtures, teams])
   const knockoutEntries = useMemo(
     () => getKnockoutEntries(effectiveScores, { groups, teams, fixtures }),
     [effectiveScores, fixtures, groups, teams]
   )
-  const scheduledEntries = useMemo(
-    () => [...groupStageEntries, ...knockoutEntries],
-    [groupStageEntries, knockoutEntries]
-  )
+  const scheduledEntries = useMemo(() => [...groupStageEntries, ...knockoutEntries], [groupStageEntries, knockoutEntries])
   const nextEntry = useMemo(() => getNextFixtureEntry(scheduledEntries), [scheduledEntries])
-  const nextFixtureSlot = useMemo(
-    () => getEntriesInSameSlot(scheduledEntries, nextEntry),
-    [scheduledEntries, nextEntry]
-  )
+  const nextFixtureSlot = useMemo(() => getEntriesInSameSlot(scheduledEntries, nextEntry), [scheduledEntries, nextEntry])
 
   const liveEntries = useMemo(
     () =>
@@ -394,9 +365,7 @@ export function DashboardPage() {
   )
 
   useEffect(() => {
-    if (liveEntries.length === 0) {
-      return undefined
-    }
+    if (liveEntries.length === 0) return undefined
 
     function fetchLiveMatches() {
       const latestState = useRealMatchStore.getState()
@@ -405,9 +374,7 @@ export function DashboardPage() {
         const fixture = entry.fixture
         const latestRealMatch = latestState.matches[fixture.id]
 
-        if (latestState.loading[fixture.id]) {
-          return
-        }
+        if (latestState.loading[fixture.id]) return
 
         if (
           latestRealMatch &&
@@ -424,7 +391,6 @@ export function DashboardPage() {
     fetchLiveMatches()
 
     const intervalId = window.setInterval(fetchLiveMatches, 1000)
-
     return () => window.clearInterval(intervalId)
   }, [liveEntries])
 

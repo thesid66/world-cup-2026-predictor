@@ -4,10 +4,20 @@ export type RealMatchStatus = {
   elapsed?: number | null
 }
 
+export type RealMatchSide = 'home' | 'away'
+
+export type RealMatchShootout = {
+  home: number | null
+  away: number | null
+  display: string | null
+}
+
 export type RealMatchScore = {
   home: number | null
   away: number | null
   display: string
+  penaltyShootout?: RealMatchShootout
+  afterPenalties?: boolean
 }
 
 export type RealMatchTeam = {
@@ -99,4 +109,7 @@ export type RealMatchData = {
   broadcasts?: string[]
   headline?: string
   links?: RealMatchLink[]
+  penaltyShootout?: RealMatchShootout
+  winningSide?: RealMatchSide | null
+  winnerTeamId?: string
 }

@@ -33,7 +33,7 @@ export function RoundOf16Bracket() {
           <h2 className="mt-2 text-3xl font-black text-white">Round of 16 bracket</h2>
 
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-            Winners from the Round of 32 automatically flow into these matches. Enter scores manually.
+            Winners from the Round of 32 automatically flow into these matches. ESPN actual results sync when available.
           </p>
         </div>
 
